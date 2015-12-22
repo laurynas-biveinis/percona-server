@@ -62,7 +62,7 @@ struct fil_space_t;
 
 /* Global counters used inside InnoDB. */
 struct srv_stats_t {
-	typedef ib_counter_t<ulint, 64> ulint_ctr_64_t;
+	typedef ib_counter_t<ulint> ulint_ctr_t;
 	typedef ib_counter_t<lsn_t, 1, single_indexer_t> lsn_ctr_1_t;
 	typedef ib_counter_t<ulint, 1, single_indexer_t> ulint_ctr_1_t;
 	typedef ib_counter_t<lint, 1, single_indexer_t> lint_ctr_1_t;
@@ -126,16 +126,16 @@ struct srv_stats_t {
 	lint_ctr_1_t		n_lock_wait_current_count;
 
 	/** Number of rows read. */
-	ulint_ctr_64_t		n_rows_read;
+	ulint_ctr_t		n_rows_read;
 
 	/** Number of rows updated */
-	ulint_ctr_64_t		n_rows_updated;
+	ulint_ctr_t		n_rows_updated;
 
 	/** Number of rows deleted */
-	ulint_ctr_64_t		n_rows_deleted;
+	ulint_ctr_t		n_rows_deleted;
 
 	/** Number of rows inserted */
-	ulint_ctr_64_t		n_rows_inserted;
+	ulint_ctr_t		n_rows_inserted;
 
 	ulint_ctr_1_t		n_lock_max_wait_time;
 

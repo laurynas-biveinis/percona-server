@@ -39,7 +39,7 @@ Created 2012/04/12 by Sunny Bains
 #endif /* __powerpc__ */
 
 /** Default number of slots to use in ib_counter_t */
-#define IB_N_SLOTS		64
+#define IB_N_SLOTS		128
 
 /** Get the offset into the counter array. */
 template <typename Type, int N>
