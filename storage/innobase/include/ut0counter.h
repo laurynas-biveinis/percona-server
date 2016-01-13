@@ -55,24 +55,17 @@ struct generic_indexer_t {
 
 #ifdef HAVE_SCHED_GETCPU
 #include <sched.h>
-/** Use the cpu id to index into the counter array. If it fails then
-use the thread id. */
+/** Use the cpu id to index into the counter array. */
 template <typename Type=ulint, int N=1>
 struct get_sched_indexer_t : public generic_indexer_t<Type, N> {
 	/** Default constructor/destructor should be OK. */
 
 	enum { fast = 1 };
 
-	/* @return result from sched_getcpu(), the thread id if it fails. */
+	/* @return result from sched_getcpu() */
 	static size_t get_rnd_index() UNIV_NOTHROW {
 
-		int	cpu = sched_getcpu();
-
-		if (cpu == -1) {
-			cpu = (int) os_thread_get_curr_id();
-		}
-
-		return(size_t(cpu));
+		return(static_cast<size_t>(sched_getcpu()));
 	}
 };
 #elif _WIN32
