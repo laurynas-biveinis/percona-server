@@ -6995,6 +6995,8 @@ static int slave_start_single_worker(Relay_log_info *rli, ulong i)
 err:
   if (error && w)
   {
+    if (w->current_mts_submode)
+      delete w->current_mts_submode;
     delete w;
     /*
       Any failure after array inserted must follow with deletion
@@ -7125,11 +7127,6 @@ static void slave_stop_workers(Relay_log_info *rli, bool *mts_inited)
 {
   THD *thd= rli->info_thd;
 
-  if (!*mts_inited)
-    return;
-  else if (rli->slave_parallel_workers == 0)
-    goto end;
-
   /*
     If request for stop slave is received notify worker
     to stop.
@@ -7215,7 +7212,10 @@ static void slave_stop_workers(Relay_log_info *rli, bool *mts_inited)
     mysql_mutex_unlock(&w->jobs_lock);
   }
 
-  if (thd->killed == THD::NOT_KILLED)
+  if (!*mts_inited)
+    return;
+
+  if (rli->slave_parallel_workers != 0 && thd->killed == THD::NOT_KILLED)
     (void) mts_checkpoint_routine(rli, 0, false, true/*need_data_lock=true*/); // TODO:consider to propagate an error out of the function
 
   while (!rli->workers.empty())
@@ -7250,7 +7250,6 @@ static void slave_stop_workers(Relay_log_info *rli, bool *mts_inited)
   DBUG_ASSERT(rli->pending_jobs == 0);
   DBUG_ASSERT(rli->mts_pending_jobs_size == 0);
 
-end:
   rli->mts_group_status= Relay_log_info::MTS_NOT_IN_GROUP;
   destroy_hash_workers(rli);
   delete rli->gaq;
