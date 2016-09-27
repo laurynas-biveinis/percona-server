@@ -1592,6 +1592,17 @@ void log_slow_statement(THD *thd)
 {
   DBUG_ENTER("log_slow_statement");
 
+  const char *last_sep= strrchr(opt_slow_logname, '/');
+  const bool trace= last_sep ? !strncmp(last_sep + 1, "percona", 7) : false;
+
+  if (trace)
+  {
+    fprintf(stderr, "query: %s\n", *thd_query(thd));
+    fprintf(stderr, "thd->in_sub_stmt: %u, query_plan_flags: %lX, thd->variables: "
+            "log_slow_filter: %llX\n", thd->in_sub_stmt, thd->query_plan_flags,
+            thd->variables.log_slow_filter);
+  }
+
   /*
     The following should never be true with our current code base,
     but better to keep this here so we don't accidently try to log a
@@ -1616,6 +1627,10 @@ void log_slow_statement(THD *thd)
   }
 #endif
 
+  if (trace)
+    fprintf(stderr, "query_exec_time: %llu, opt_log_slow_sp_statments: %lu, thd->lex: %p\n",
+            query_exec_time, opt_log_slow_sp_statements, thd->lex);
+
   /*
     Don't log the CALL statement if slow statements logging
     inside of stored procedures is enabled.
@@ -1625,6 +1640,10 @@ void log_slow_statement(THD *thd)
   if (opt_log_slow_sp_statements > 0 &&
       thd->lex)
   {
+
+    if (trace)
+      fprintf(stderr, "thd->lex->sql_comand: %d\n", (int)thd->lex->sql_command);
+
     if (thd->lex->sql_command == SQLCOM_CALL)
       DBUG_VOID_RETURN;
     /* Can be prepared CALL statement */
@@ -1645,6 +1664,16 @@ void log_slow_statement(THD *thd)
     to make an exception and write to slow log anyway.
   */
 
+  if (trace)
+    fprintf(stderr, "before global to session: log_slow_filter: %llX, "
+            "log_slow_rate_limit: %lu, log_slow_verbosity: %llX, "
+            "long_query_time: %llu, min_examined_row_limit: %lu\n",
+            thd->variables.log_slow_filter,
+            thd->variables.log_slow_rate_limit,
+            thd->variables.log_slow_verbosity,
+            thd->variables.long_query_time,
+            thd->variables.min_examined_row_limit);
+
   system_variables const &g= global_system_variables;
   copy_global_to_session(thd, SLOG_UG_LOG_SLOW_FILTER,
                          &g.log_slow_filter);
@@ -1657,6 +1686,21 @@ void log_slow_statement(THD *thd)
   copy_global_to_session(thd, SLOG_UG_MIN_EXAMINED_ROW_LIMIT,
                          &g.min_examined_row_limit);
 
+  if (trace)
+    fprintf(stderr, "after global to session: log_slow_filter: %llX, "
+            "log_slow_rate_limit: %lu, log_slow_verbosity: %llX, "
+            "long_query_time: %llu, min_examined_row_limit: %lu\n",
+            thd->variables.log_slow_filter,
+            thd->variables.log_slow_rate_limit,
+            thd->variables.log_slow_verbosity,
+            thd->variables.long_query_time,
+            thd->variables.min_examined_row_limit);
+
+  if (trace)
+    fprintf(stderr, "opt_slow_query_log_rate_type: %d, slow_query_log_always_write_time: %llu\n",
+            (int)opt_slow_query_log_rate_type,
+            slow_query_log_always_write_time);
+
   if (opt_slow_query_log_rate_type == SLOG_RT_QUERY
       && thd->variables.log_slow_rate_limit
       && my_rnd(&thd->slog_rand) * ((double)thd->variables.log_slow_rate_limit) > 1.0
@@ -1665,6 +1709,10 @@ void log_slow_statement(THD *thd)
           || (ulong) query_exec_time < 1000000)) {
     DBUG_VOID_RETURN;
   }
+
+  if (trace)
+    fprintf(stderr, "thd->thread_id: %lu\n", thd->thread_id);
+
   if (opt_slow_query_log_rate_type == SLOG_RT_SESSION
       && thd->variables.log_slow_rate_limit
       && thd->thread_id % thd->variables.log_slow_rate_limit
@@ -1674,6 +1722,8 @@ void log_slow_statement(THD *thd)
     DBUG_VOID_RETURN;
   }
 
+  if (trace)
+    fprintf(stderr, "thd->enable_slow_log: %d\n", thd->enable_slow_log);
 
   /*
     Do not log administrative statements unless the appropriate option is
@@ -1682,6 +1732,12 @@ void log_slow_statement(THD *thd)
   if (thd->enable_slow_log)
   {
     thd_proc_info(thd, "logging slow query");
+
+    if (trace)
+      fprintf(stderr, "thd->server_status: %X, opt_log_queries_not_using_indexes: %d, "
+              "thd->examined_row_count: %llu\n",
+              thd->server_status, opt_log_queries_not_using_indexes,
+              thd->examined_row_count);
 
     if (((thd->server_status & SERVER_QUERY_WAS_SLOW) ||
          ((thd->server_status &
