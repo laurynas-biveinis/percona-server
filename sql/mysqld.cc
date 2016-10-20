@@ -5659,6 +5659,12 @@ void handle_connections_sockets()
     if (sock == unix_sock)
       thd->security_ctx->set_host((char*) my_localhost);
 
+    if (thd->scheduler->add_connection == tp_add_connection)
+    {
+      fprintf(stderr, "new connection, sock = %d, unix_sock = %d, base_ip_sock = %d, extra_ip_sock = %d\n",
+              sock, unix_sock, base_ip_sock, extra_ip_sock);
+    }
+
     if (sock == extra_ip_sock)
     {
       thd->extra_port= 1;

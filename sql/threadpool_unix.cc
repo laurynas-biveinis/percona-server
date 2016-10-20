@@ -1764,8 +1764,10 @@ static void print_pool_blocked_message(bool max_threads_reached)
   
   if (now > pool_block_start + BLOCK_MSG_DELAY && !msg_written)
   {
-    if (max_threads_reached)
+    if (max_threads_reached) {
       sql_print_error(MAX_THREADS_REACHED_MSG);
+      __builtin_trap();
+    }
     else
       sql_print_error(CREATE_THREAD_ERROR_MSG, my_errno);
     
