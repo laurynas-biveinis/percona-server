@@ -3093,6 +3093,8 @@ CLI_MYSQL_REAL_CONNECT(MYSQL *mysql,const char *host, const char *user,
 		      db ? db : "(Null)",
 		      user ? user : "(Null)"));
 
+  fprintf(stderr, "mysql_real_connect: host: %s, port: %u, socket: %s\n",
+          host, port, unix_socket);
   /* Test whether we're already connected */
   if (net->vio)
   {
@@ -3153,6 +3155,7 @@ CLI_MYSQL_REAL_CONNECT(MYSQL *mysql,const char *host, const char *user,
        mysql->options.protocol == MYSQL_PROTOCOL_MEMORY) &&
       (!host || !strcmp(host,LOCAL_HOST)))
   {
+    fprintf(stderr, "Using shared memory\n");
     DBUG_PRINT("info", ("Using shared memory"));
     if ((create_shared_memory(mysql,net, mysql->options.connect_timeout)) ==
 	INVALID_HANDLE_VALUE)
@@ -3191,6 +3194,7 @@ CLI_MYSQL_REAL_CONNECT(MYSQL *mysql,const char *host, const char *user,
       (!host || !strcmp(host,LOCAL_HOST)))
   {
     my_socket sock= socket(AF_UNIX, SOCK_STREAM, 0);
+    fprintf(stderr, "Using socket\n");
     DBUG_PRINT("info", ("Using socket"));
     if (sock == SOCKET_ERROR)
     {
@@ -3277,6 +3281,8 @@ CLI_MYSQL_REAL_CONNECT(MYSQL *mysql,const char *host, const char *user,
     my_socket sock= SOCKET_ERROR;
     int saved_error= 0, status= -1;
 
+    fprintf(stderr, "Using TCP\n");
+
     unix_socket=0;				/* This is not used */
 
     if (!port)
@@ -3361,6 +3367,9 @@ CLI_MYSQL_REAL_CONNECT(MYSQL *mysql,const char *host, const char *user,
                ("End of connect attempts, sock: %d  status: %d  error: %d",
                 sock, status, saved_error));
 
+    fprintf(stderr, "End of connect attempts, sock: %d, status: %d, error %d\n",
+            sock, status, saved_error);
+    
     freeaddrinfo(res_lst);
 
     if (sock == SOCKET_ERROR)

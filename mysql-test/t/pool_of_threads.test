@@ -2,6 +2,7 @@
 # and run a number of tests
 
 -- source include/have_pool_of_threads.inc
+-- source include/count_sessions.inc
 -- source include/common-tests.inc
 
 # Test that we cannot have more simultaneous connections than
@@ -24,7 +25,9 @@ send SELECT sleep(50000);
 --disable_abort_on_error
 --disable_result_log
 --disable_query_log
+--disable_reconnect
 connect(con3,localhost,root,,);
+--enable_reconnect
 --enable_query_log
 --enable_result_log
 --enable_abort_on_error
@@ -60,7 +63,9 @@ call mtr.add_suppression("Too many connections");
 --disable_abort_on_error
 --disable_result_log
 --disable_query_log
+--disable_reconnect
 connect(extracon3,127.0.0.1,root,,test,$MASTER_EXTRA_PORT,);
+--enable_reconnect
 --enable_query_log
 --enable_result_log
 --enable_abort_on_error
@@ -74,7 +79,13 @@ if ($error)
   --echo # -- Success: more than --extra-max-connections + 1 normal connections not possible
 }
 
-connection default;
---reap
 connection con2;
 --reap
+disconnect con2;
+disconnect extracon;
+disconnect extracon2;
+
+connection default;
+--reap
+
+--source include/wait_until_count_sessions.inc

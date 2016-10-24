@@ -2161,6 +2161,7 @@ sub mysql_client_test_arguments(){
   mtr_add_arg($args, "--defaults-file=%s", $path_config_file);
   mtr_add_arg($args, "--testcase");
   mtr_add_arg($args, "--vardir=$opt_vardir");
+#  mtr_add_arg($args, "--debug=d:t:f,mysql_real_connect");
   client_debug_arg($args,"mysql_client_test");
 
   return mtr_args2str($exe, @$args);
