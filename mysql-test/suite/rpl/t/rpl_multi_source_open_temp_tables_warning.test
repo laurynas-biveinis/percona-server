@@ -22,7 +22,7 @@
 #               USING MULTI-SOURCE
 
 
---source include/have_binlog_format_mixed.inc
+--source include/have_binlog_format_statement.inc
 
 --let $rpl_multi_source= 1
 --let $rpl_topology= 1->2, 3->2, 4->2

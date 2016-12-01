@@ -210,7 +210,7 @@ CREATE TEMPORARY TABLE tti1 (a INT) ENGINE=Innodb;
 DROP TABLE tm,t1,ttm1,tti1;
 
 
---let $logical_timestamps= 0 1;1 2;2 3;3 4;4 5
+--let $logical_timestamps= 0 1;1 2;2 3
 --source include/assert_logical_timestamps.inc
 
 #
