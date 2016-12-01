@@ -12951,9 +12951,10 @@ bool mysql_alter_table(THD *thd, const char *new_db, const char *new_name,
 
     if (create_info->options & HA_LEX_CREATE_TMP_TABLE)
     {
-      if (!open_table_uncached(thd, alter_ctx.get_tmp_path(),
-                               alter_ctx.new_db, alter_ctx.tmp_name,
-                               true, true, table_def))
+      if (thd->decide_logging_format(table_list)
+          || !open_table_uncached(thd, alter_ctx.get_tmp_path(),
+                                  alter_ctx.new_db, alter_ctx.tmp_name,
+                                  true, true, table_def))
         goto err_new_table_cleanup;
       /* in case of alter temp table send the tracker in OK packet */
       if (thd->session_tracker.get_tracker(SESSION_STATE_CHANGE_TRACKER)->is_enabled())
