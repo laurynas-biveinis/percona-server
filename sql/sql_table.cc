@@ -2587,6 +2587,15 @@ bool mysql_rm_table(THD *thd,TABLE_LIST *tables, bool if_exists,
     DBUG_RETURN(true);
   }
 
+  /*
+    bug 72475 : DROP tables need to have their logging format determined if
+    in MIXED mode and dropping a TEMP table.
+  */
+  if (thd->decide_logging_format(tables))
+  {
+    DBUG_RETURN(true);
+  }
+
   /* Disable drop of enabled log tables, must be done before name locking */
   for (table= tables; table; table= table->next_local)
   {
@@ -7701,7 +7710,9 @@ bool mysql_create_table(THD *thd, TABLE_LIST *create_table,
     To check the existence of table, lock of type "S" is obtained on the table
     and then it is upgraded to "X" if table does not exists.
   */
-  if (open_tables(thd, &thd->lex->query_tables, &not_used, 0))
+
+  if (open_tables(thd, &thd->lex->query_tables, &not_used, 0) ||
+      thd->decide_logging_format(thd->lex->query_tables))
   {
     result= true;
     goto end;
@@ -8106,8 +8117,12 @@ bool mysql_create_like_table(THD* thd, TABLE_LIST* table, TABLE_LIST* src_table,
     that we can safely perform table creation.
     Thus by holding both these locks we ensure that our statement is
     properly isolated from all concurrent operations which matter.
+
+    bug 72475 : CREATE LIKE needs to have the logging format determined if in
+    MIXED mode and creating LIKE a TEMP table.
   */
-  if (open_tables(thd, &thd->lex->query_tables, &not_used, 0))
+  if (open_tables(thd, &thd->lex->query_tables, &not_used, 0) ||
+      thd->decide_logging_format(thd->lex->query_tables))
     DBUG_RETURN(true);
   src_table->table->use_all_columns();
 
