@@ -2770,29 +2770,6 @@ vats_grant(
 	}
 }
 
-
-/*************************************************************//**
-Move the lock to the head of the hash list. */
-static
-void
-lock_rec_move_to_front(
-	lock_t *lock_to_move,	/*!< in: lock to be moved */
-	ulint rec_fold)			 /*!< in: rec fold of the lock */
-{
-	if (lock_to_move != NULL)
-	{
-		// Move the target lock to the head of the list
-		hash_cell_t* cell = hash_get_nth_cell(lock_sys->rec_hash,
-						      hash_calc_hash(rec_fold,
-								     lock_sys->rec_hash));
-		if (lock_to_move != cell->node) {
-			lock_t *next = (lock_t *) cell->node;
-			cell->node = lock_to_move;
-			lock_to_move->hash = next;
-		}
-	}
-}
-
 /*************************************************************//**
 Removes a record lock request, waiting or granted, from the queue and
 grants locks to other transactions in the queue if they now are entitled
@@ -5875,14 +5852,10 @@ lock_rec_queue_validate(
 					lock->trx);
 			ut_a(!other_lock);
 
-		} else if (lock_get_wait(lock) && !lock_rec_get_gap(lock)
-			   && (innodb_lock_schedule_algorithm
-			       == INNODB_LOCK_SCHEDULE_ALGORITHM_FCFS)) {
+		} else if (lock_get_wait(lock) && !lock_rec_get_gap(lock)) {
 
-			// If using VATS, it's possible that a wait lock is
-			// inserted to a place in the list such that it does
-			// not need to wait.
 			ut_a(lock_rec_has_to_wait_in_queue(lock));
+
 		}
     }
 
