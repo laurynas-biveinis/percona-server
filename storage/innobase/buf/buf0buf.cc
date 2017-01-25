@@ -4347,8 +4347,12 @@ loop:
 		buf_block_fix(fix_block);
 	}
 
+	ut_a(fix_block->page.buf_fix_count > 0);
+
 	/* Now safe to release page_hash mutex */
 	rw_lock_s_unlock(hash_lock);
+
+	ut_a(fix_block->page.buf_fix_count > 0);
 
 got_block:
 #if defined UNIV_DEBUG || defined UNIV_IBUF_DEBUG
@@ -4569,13 +4573,13 @@ got_block:
 		break;
 	}
 
-	ut_ad(block == fix_block);
-	ut_ad(fix_block->page.buf_fix_count > 0);
+	ut_a(block == fix_block);
+	ut_a(fix_block->page.buf_fix_count > 0);
 
 	ut_ad(!rw_lock_own(hash_lock, RW_LOCK_X));
 	ut_ad(!rw_lock_own(hash_lock, RW_LOCK_S));
 
-	ut_ad(buf_block_get_state(fix_block) == BUF_BLOCK_FILE_PAGE);
+	ut_a(buf_block_get_state(fix_block) == BUF_BLOCK_FILE_PAGE);
 
 #if defined UNIV_DEBUG || defined UNIV_IBUF_DEBUG
 
@@ -4659,7 +4663,7 @@ got_block:
 	}
 #endif /* UNIV_DEBUG || UNIV_IBUF_DEBUG */
 
-	ut_ad(fix_block->page.buf_fix_count > 0);
+	ut_a(fix_block->page.buf_fix_count > 0);
 
 #ifdef UNIV_DEBUG
 	/* We have already buffer fixed the page, and we are committed to

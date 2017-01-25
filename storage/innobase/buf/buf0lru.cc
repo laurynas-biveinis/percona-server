@@ -2349,6 +2349,7 @@ buf_LRU_block_free_non_file_page(
 	}
 
 	assert_block_ahi_empty(block);
+	ut_a(block->page.buf_fix_count == 0);
 	ut_ad(!block->page.in_free_list);
 	ut_ad(!block->page.in_flush_list);
 	ut_ad(!block->page.in_LRU_list);
