@@ -17,15 +17,18 @@ INCLUDE_DIRECTORIES(
   ${CMAKE_SOURCE_DIR}/client
   ${CMAKE_SOURCE_DIR}/include
   ${CMAKE_SOURCE_DIR}/mysys_ssl
-  ${ZLIB_INCLUDE_DIR}
-  ${LZ4_INCLUDE_DIR}
-  ${SSL_INCLUDE_DIRS}
   ${CMAKE_SOURCE_DIR}/libmysql
   ${CMAKE_SOURCE_DIR}/libbinlogevents/include
   ${CMAKE_SOURCE_DIR}/regex
   ${CMAKE_SOURCE_DIR}/strings
-  ${EDITLINE_INCLUDE_DIR}
   ${CMAKE_CURRENT_BINARY_DIR}
+)
+
+INCLUDE_DIRECTORIES(SYSTEM
+  ${ZLIB_INCLUDE_DIR}
+  ${LZ4_INCLUDE_DIR}
+  ${SSL_INCLUDE_DIRS}
+  ${EDITLINE_INCLUDE_DIR}
 )
 
 INCLUDE(${MYSQL_CMAKE_SCRIPT_DIR}/compile_flags.cmake)
@@ -52,7 +55,7 @@ IF(NOT WITHOUT_SERVER)
     upgrade/program.cc
   )
 ADD_COMPILE_FLAGS(
-  upgrade/program.cc COMPILE_FLAGS -I${BOOST_PATCHES_DIR} -I${BOOST_INCLUDE_DIR}
+  upgrade/program.cc COMPILE_FLAGS -I${BOOST_PATCHES_DIR} -isystem ${BOOST_INCLUDE_DIR}
 )
 TARGET_LINK_LIBRARIES(mysql_upgrade mysqlclient client_base mysqlcheck_core)
 ADD_DEPENDENCIES(mysql_upgrade GenFixPrivs GenSysSchema)

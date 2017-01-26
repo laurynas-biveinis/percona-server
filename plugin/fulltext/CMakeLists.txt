@@ -39,7 +39,9 @@ ENDIF()
 
 IF(WITH_MECAB)
   INCLUDE_DIRECTORIES(${CMAKE_SOURCE_DIR}/storage/innobase/include
-                      ${CMAKE_SOURCE_DIR}/include
+                      ${CMAKE_SOURCE_DIR}/include)
+
+  INCLUDE_DIRECTORIES(SYSTEM
                       ${MECAB_INCLUDE_DIR})
 
   MYSQL_ADD_PLUGIN(mecab_parser ./mecab_parser/plugin_mecab.cc

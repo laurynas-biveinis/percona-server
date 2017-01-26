@@ -42,8 +42,10 @@ CREATE_JAR(jtie-test-myjapi ${JAVA_SOURCES}
 
 IF(HAVE_JDK)
 
+  INCLUDE_DIRECTORIES(SYSTEM
+        ${JNI_INCLUDE_DIRS})
+
   INCLUDE_DIRECTORIES(
-  	${JNI_INCLUDE_DIRS}
   	${CMAKE_SOURCE_DIR}/storage/ndb/src/ndbjtie/utils
   	${CMAKE_SOURCE_DIR}/storage/ndb/src/ndbjtie/jtie
   	${CMAKE_SOURCE_DIR}/storage/ndb/src/ndbjtie/jtie/test/myapi)

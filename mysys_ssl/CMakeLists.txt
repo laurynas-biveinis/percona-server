@@ -15,7 +15,9 @@
 
 INCLUDE_DIRECTORIES(${CMAKE_SOURCE_DIR}/include
                     ${CMAKE_SOURCE_DIR}/mysys_ssl
-                    ${CMAKE_SOURCE_DIR}/mysys
+                    ${CMAKE_SOURCE_DIR}/mysys)
+
+INCLUDE_DIRECTORIES(SYSTEM
                     ${SSL_INCLUDE_DIRS})
 
 IF(SSL_DEFINES)

@@ -95,7 +95,7 @@ include_directories(BEFORE ${CACHE_SRC})
 include_directories(${NDB_SOURCE_DIR}/src/ndbjtie/mysql)
 include_directories(${NDB_SOURCE_DIR}/src/ndbapi/)
 include_directories(${CMAKE_BINARY_DIR}/storage/ndb/memcache/include/)
-include_directories(AFTER ${MEMCACHED_INCLUDE_DIR})
+include_directories(AFTER SYSTEM ${MEMCACHED_INCLUDE_DIR})
 include_directories(AFTER ${BUNDLED_MEMCACHED})
 
 # Paths to libraries

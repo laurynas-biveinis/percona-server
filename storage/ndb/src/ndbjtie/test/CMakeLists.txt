@@ -39,7 +39,9 @@ IF(HAVE_JDK)
   	${CMAKE_SOURCE_DIR}/storage/ndb/src/ndbjtie/utils
   	${CMAKE_SOURCE_DIR}/storage/ndb/src/ndbjtie/jtie
   	${CMAKE_SOURCE_DIR}/storage/ndb/include/mgmapi
-  	${CMAKE_SOURCE_DIR}/storage/ndb/include/ndbapi
+        ${CMAKE_SOURCE_DIR}/storage/ndb/include/ndbapi)
+
+  INCLUDE_DIRECTORIES(
   	${JNI_INCLUDE_DIRS})
 
   # enable safety behaviour

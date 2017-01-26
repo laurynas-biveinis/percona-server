@@ -18,7 +18,9 @@ INCLUDE(configure.cmake)
 
 INCLUDE_DIRECTORIES(${CMAKE_SOURCE_DIR}/include
                     ${CMAKE_SOURCE_DIR}/libbinlogevents/include
-                    ${CMAKE_SOURCE_DIR}/libbinlogevents/export
+                    ${CMAKE_SOURCE_DIR}/libbinlogevents/export)
+
+INCLUDE_DIRECTORIES(SYSTEM
                     # ZLIB_INCLUDE_DIR points to ${CMAKE_SOURCE_DIR}/zlib,
                     # when compiled with MySQL server version (< 5.7).
                     # It is NULL otherwise.

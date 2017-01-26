@@ -17,9 +17,11 @@ INCLUDE_DIRECTORIES(${CMAKE_SOURCE_DIR}/include
                     ${CMAKE_SOURCE_DIR}/libmysqld/include
                     ${CMAKE_SOURCE_DIR}/regex 
                     ${CMAKE_SOURCE_DIR}/testclients
-                    ${EDITLINE_INCLUDE_DIR}                 
                     )
 
+INCLUDE_DIRECTORIES(SYSTEM
+                    ${EDITLINE_INCLUDE_DIR}
+                    )
 
 ADD_DEFINITIONS(-DEMBEDDED_LIBRARY -UMYSQL_CLIENT)
 

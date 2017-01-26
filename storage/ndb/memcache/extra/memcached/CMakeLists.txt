@@ -19,7 +19,8 @@ INCLUDE_DIRECTORIES(BEFORE ${CMAKE_CURRENT_BINARY_DIR})
 INCLUDE_DIRECTORIES(${CMAKE_CURRENT_SOURCE_DIR}/include
                     ${CMAKE_CURRENT_SOURCE_DIR}/include/memcached
                     ${CMAKE_CURRENT_SOURCE_DIR}/utilities 
-                    ${CMAKE_CURRENT_SOURCE_DIR}/daemon                                    
+                    ${CMAKE_CURRENT_SOURCE_DIR}/daemon)
+INCLUDE_DIRECTORIES(SYSTEM
                     ${LIBEVENT_INCLUDE_DIR})
 
 IF(${CMAKE_COMPILER_IS_GNUCC})

@@ -1029,14 +1029,10 @@ template<typename Geom_types>
 int Item_func_spatial_rel::overlaps_check(Geometry *g1, Geometry *g2,
                                           my_bool *pnull_value)
 {
-  typedef typename Geom_types::Point Point;
-  typedef typename Geom_types::Multipoint Multipoint;
   typedef typename Geom_types::Linestring Linestring;
   typedef typename Geom_types::Multilinestring Multilinestring;
   typedef typename Geom_types::Polygon Polygon;
   typedef typename Geom_types::Multipolygon Multipolygon;
-  typedef std::set<Point, bgpt_lt> Point_set;
-  typedef std::vector<Point> Point_vector;
 
   int result= 0;
   Geometry::wkbType gt1= g1->get_type();
@@ -1152,11 +1148,6 @@ template<typename Geom_types>
 int Item_func_spatial_rel::touches_check(Geometry *g1, Geometry *g2,
                                          my_bool *pnull_value)
 {
-  typedef typename Geom_types::Linestring Linestring;
-  typedef typename Geom_types::Multilinestring Multilinestring;
-  typedef typename Geom_types::Polygon Polygon;
-  typedef typename Geom_types::Multipolygon Multipolygon;
-
   int result= 0;
   Geometry::wkbType gt1= g1->get_type();
   Geometry::wkbType gt2= g2->get_type();

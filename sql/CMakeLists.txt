@@ -21,9 +21,12 @@ INCLUDE_DIRECTORIES(
   ${CMAKE_SOURCE_DIR}/sql 
   ${CMAKE_SOURCE_DIR}/sql/auth
   ${CMAKE_SOURCE_DIR}/regex 
-  ${ZLIB_INCLUDE_DIR}
-  ${SSL_INCLUDE_DIRS}
   ${CMAKE_BINARY_DIR}/sql
+)
+
+INCLUDE_DIRECTORIES(SYSTEM
+  ${SSL_INCLUDE_DIRS}
+  ${ZLIB_INCLUDE_DIR}
   ${LZ4_INCLUDE_DIR}
 )
 
@@ -312,7 +315,7 @@ ADD_COMPILE_FLAGS(
   item_geofunc_setops.cc
   item_json_func.cc
   spatial.cc
-  COMPILE_FLAGS -I${BOOST_PATCHES_DIR} -I${BOOST_INCLUDE_DIR}
+  COMPILE_FLAGS -I${BOOST_PATCHES_DIR} -isystem ${BOOST_INCLUDE_DIR}
 )
 
 ADD_COMPILE_FLAGS(
@@ -324,40 +327,6 @@ ADD_COMPILE_FLAGS(
 # The flag /bigobj is not added if the build is not WINDOWS_RUNTIME_MD (/MD)
 IF(WINDOWS_RUNTIME_MD AND CMAKE_SIZEOF_VOID_P MATCHES 8)
   ADD_COMPILE_FLAGS(item_geofunc_setops.cc COMPILE_FLAGS "/bigobj")
-ENDIF()
-
-# Boost source has unused local typedefs.
-MY_CHECK_CXX_COMPILER_FLAG("-Wno-unused-local-typedefs" HAVE_NO_UNUSED_TYPEDEFS)
-IF(HAVE_NO_UNUSED_TYPEDEFS)
-  ADD_COMPILE_FLAGS(
-    debug_sync.cc
-    handler.cc
-    geometry_rtree.cc
-    item_geofunc.cc
-    item_geofunc_buffer.cc
-    item_geofunc_internal.cc
-    item_geofunc_relchecks.cc
-    item_geofunc_relchecks_bgwrap.cc
-    item_geofunc_setops.cc
-    item_json_func.cc
-    spatial.cc
-    COMPILE_FLAGS "-Wno-unused-local-typedefs"
-  )
-ENDIF()
-
-# Boost source has misleading indentation
-MY_CHECK_CXX_COMPILER_FLAG("-Wmisleading-indentation"
-                           HAVE_MISLEADING_INDENTATION)
-IF(HAVE_MISLEADING_INDENTATION)
-  ADD_COMPILE_FLAGS(
-    geometry_rtree.cc
-    item_geofunc.cc
-    item_geofunc_buffer.cc
-    item_geofunc_internal.cc
-    item_geofunc_relchecks.cc
-    item_geofunc_relchecks_bgwrap.cc
-    item_geofunc_setops.cc    
-    COMPILE_FLAGS "-Wno-misleading-indentation")
 ENDIF()
 
 MY_CHECK_CXX_COMPILER_FLAG("-fno-builtin-memcmp" HAVE_NO_BUILTIN_MEMCMP)

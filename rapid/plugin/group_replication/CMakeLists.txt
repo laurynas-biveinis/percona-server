@@ -33,8 +33,6 @@ INCLUDE(rpcgen.cmake)
 INCLUDE_DIRECTORIES(
   ${CMAKE_BINARY_DIR}/include/                   # config.h
   ${CMAKE_SOURCE_DIR}/libbinlogevents/include/   # byteorder.h
-  ${SSL_INCLUDE_DIRS}                            # SSL include dirs
-  ${LZ4_INCLUDE_DIR}                             # LZ4
   ${XCOM_WINDEPS_INCLUDE_DIRS}                   # win deps and sun rpc
   ${CMAKE_CURRENT_SOURCE_DIR}/include
   ${CMAKE_CURRENT_SOURCE_DIR}/include/sql_service
@@ -44,6 +42,10 @@ INCLUDE_DIRECTORIES(
   ${CMAKE_CURRENT_SOURCE_DIR}/libmysqlgcs/src/bindings/xcom/xcom
   ${CMAKE_CURRENT_BINARY_DIR}/include
   ${CMAKE_CURRENT_BINARY_DIR}/xdr_gen)
+
+INCLUDE_DIRECTORIES(SYSTEM
+  ${LZ4_INCLUDE_DIR}                             # LZ4
+  ${SSL_INCLUDE_DIRS})                           # SSL include dirs
 
 ### SOURCES ###
 

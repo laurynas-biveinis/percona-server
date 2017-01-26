@@ -13,10 +13,12 @@
 # along with this program; if not, write to the Free Software
 # Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301 USA
 
+INCLUDE_DIRECTORIES(SYSTEM
+${ZLIB_INCLUDE_DIR}
+${LZ4_INCLUDE_DIR})
+
 INCLUDE_DIRECTORIES(
 ${CMAKE_SOURCE_DIR}/include 
-${ZLIB_INCLUDE_DIR}
-${LZ4_INCLUDE_DIR}
 # Following is for perror, in case NDB is compiled in.
 ${CMAKE_SOURCE_DIR}/storage/ndb/include
 ${CMAKE_BINARY_DIR}/storage/ndb/include
@@ -106,7 +108,7 @@ IF(WITH_INNOBASE_STORAGE_ENGINE)
 
   IF(LZ4_INCLUDE_DIR AND LZ4_LIBRARY)
     ADD_DEFINITIONS(-DHAVE_LZ4=1)
-    INCLUDE_DIRECTORIES(${LZ4_INCLUDE_DIR})
+    INCLUDE_DIRECTORIES(SYSTEM ${LZ4_INCLUDE_DIR})
   ENDIF()
 
   # Add path to the InnoDB headers

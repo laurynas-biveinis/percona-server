@@ -41,7 +41,7 @@ set(NODE_VERSION 0.10.4)
 set(NODE_GYP ${NDB_NODEJS_EXTRAS_PATH}/node-gyp/${NODE_VERSION})
 set(NODE_INCLUDES ${NODE_GYP}/src ${NODE_GYP}/deps/uv/include ${NODE_GYP}/deps/v8/include)
 
-include_directories(${NODE_INCLUDES})
+include_directories(SYSTEM ${NODE_INCLUDES})
 include_directories(Adapter/impl/common/include)
 include_directories(Adapter/impl/ndb/include) 
 
