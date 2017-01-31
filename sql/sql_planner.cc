@@ -324,6 +324,10 @@ public:
     }
   }
 
+// See the comment at Loose_scan_opt::Loose_scan_opt for why this warning has
+// been left in the code intentionally
+MY_DISABLE_WARN_MAYBE_UNINITIALIZED
+
   void save_to_position(JOIN_TAB *tab, POSITION *pos)
   {
     pos->read_time=       best_loose_scan_cost;
@@ -342,6 +346,9 @@ public:
                                                      "(range/index access)"));
     }
   }
+
+MY_RESTORE_WARN_MAYBE_UNINITIALIZED
+
 };
 
 

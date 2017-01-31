@@ -218,6 +218,15 @@ SET(SQL_SOURCE
   sql_client.cc
   )
 
+# GCC 4.4.7 on 32-bit CentOS 6 fails to disable the warning using
+# pragmas in the source code. Work around by adding -Wno-uninitialized
+# to sql_planner.cc compilation flags for compilers who do not support
+# -Wmaybe-unininitialized,
+INCLUDE(${MYSQL_CMAKE_SCRIPT_DIR}/compile_flags.cmake)
+IF (NOT HAVE_WMAYBE_UNINITIALIZED)
+  ADD_COMPILE_FLAGS(sql_planner.cc COMPILE_FLAGS -Wno-uninitialized)
+ENDIF()
+
 IF (WIN32 AND OPENSSL_APPLINK_C)
   SET_SOURCE_FILES_PROPERTIES(
     ../sql-common/client_authentication.cc

@@ -78,6 +78,15 @@ SET(SQL_EMBEDDED_SOURCES
   ${IMPORTED_SOURCES}
 )
 
+# GCC 4.4.7 on 32-bit CentOS 6 fails to disable the warning using
+# pragmas in the source code. Work around by adding -Wno-uninitialized
+# to sql_planner.cc compilation flags for compilers who do not support
+# -Wmaybe-unininitialized,
+INCLUDE(${MYSQL_CMAKE_SCRIPT_DIR}/compile_flags.cmake)
+IF (NOT HAVE_WMAYBE_UNINITIALIZED)
+  ADD_COMPILE_FLAGS(../sql/sql_planner.cc COMPILE_FLAGS -Wno-uninitialized)
+ENDIF()
+
 IF(HAVE_MY_TIMER)
   SET(SQL_EMBEDDED_SOURCES ${SQL_EMBEDDED_SOURCES} ../sql/sql_timer.cc)
 ENDIF()
