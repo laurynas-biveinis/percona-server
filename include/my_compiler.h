@@ -150,4 +150,25 @@ struct my_aligned_storage
 
 #include <my_attribute.h>
 
+#ifdef HAVE_WMAYBE_UNINITIALIZED
+#define WMAYBE_UNINITIALIZED_OPTION "-Wmaybe-uninitialized"
+#else
+#define WMAYBE_UNINITIALIZED_OPTION "-Wuninitialized"
+#endif
+
+#define MY_DO_PRAGMA(x) _Pragma(x)
+
+#ifdef HAVE_PRAGMA_GCC_DIAGNOSTIC_PUSH
+#define MY_DISABLE_WARN_MAYBE_UNINITIALIZED     \
+    _Pragma("GCC diagnostic push")              \
+    MY_DO_PRAGMA(STRINGIFY_ARG(GCC diagnostic ignored WMAYBE_UNINITIALIZED_OPTION))
+#define MY_RESTORE_WARN_MAYBE_UNINITIALIZED     \
+    _Pragma("GCC diagnostic pop")
+#else
+#define MY_DISABLE_WARN_MAYBE_UNINITIALIZED     \
+    MY_DO_PRAGMA(STRINGIFY_ARG(GCC diagnostic ignored WMAYBE_UNINITIALIZED_OPTION))
+#define MY_RESTORE_WARN_MAYBE_UNINITIALIZED     \
+    MY_DO_PRAGMA(STRINGIFY_ARG(GCC diagnostic warning WMAYBE_UNINITIALIZED_OPTION))
+#endif
+
 #endif /* MY_COMPILER_INCLUDED */
