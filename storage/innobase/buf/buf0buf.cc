@@ -4343,8 +4343,10 @@ loop:
 		mutex_enter(fix_mutex);
 		buf_block_fix(fix_block);
 		mutex_exit(fix_mutex);
+		ut_a(fix_block->page.buf_fix_count > 0);
 	} else {
 		buf_block_fix(fix_block);
+		ut_a(fix_block->page.buf_fix_count > 0);
 	}
 
 	ut_a(fix_block->page.buf_fix_count > 0);
