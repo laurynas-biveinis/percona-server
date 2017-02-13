@@ -1021,7 +1021,7 @@ buf_block_unfix(
 {
 	ut_ad(!mutex_own(buf_page_get_mutex(bpage)));
 	ib_uint32_t count = os_atomic_decrement_uint32(&bpage->buf_fix_count, 1);
-	ut_a(count + 1UL != 0);
+	ut_a(count != UINT32_MAX);
 	return(count);
 }
 
