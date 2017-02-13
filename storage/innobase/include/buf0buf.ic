@@ -969,7 +969,7 @@ buf_block_fix(
 	buf_page_t*	bpage)
 {
 //	ut_a(buf_page_hash_lock_held_s_or_x(buf_bool_ptr[bpage->buf_pool_index], bpage));
-	const ulint result = os_atomic_increment_uint32(&bpage->buf_fix_count, 1);
+	const ib_uint32_t result = os_atomic_increment_uint32(&bpage->buf_fix_count, 1);
 	ut_a(result > 0);
 	return(result);
 }
