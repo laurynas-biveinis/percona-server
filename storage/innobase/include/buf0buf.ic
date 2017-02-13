@@ -968,6 +968,7 @@ ulint
 buf_block_fix(
 	buf_page_t*	bpage)
 {
+//	ut_a(buf_page_hash_lock_held_s_or_x(buf_bool_ptr[bpage->buf_pool_index], bpage));
 	const ulint result = os_atomic_increment_uint32(&bpage->buf_fix_count, 1);
 	ut_a(result > 0);
 	return(result);
@@ -1019,8 +1020,8 @@ buf_block_unfix(
 	buf_page_t*	bpage)
 {
 	ut_ad(!mutex_own(buf_page_get_mutex(bpage)));
-	ulint	count = os_atomic_decrement_uint32(&bpage->buf_fix_count, 1);
-	ut_a(count + 1 != 0);
+	ib_uint32_t count = os_atomic_decrement_uint32(&bpage->buf_fix_count, 1);
+	ut_a(count + 1UL != 0);
 	return(count);
 }
 
