@@ -1919,6 +1919,8 @@ io_thread_init_command(Master_info *mi, const char *query, int allowed_error,
     mysql_free_result(mysql_store_result(mysql));
     if (!err || err != allowed_error)
     {
+      if (err == CR_CONN_HOST_ERROR)
+        __builtin_trap();
       mi->report(is_network_error(err) ? WARNING_LEVEL : ERROR_LEVEL, err,
                  "The slave IO thread stops because the initialization query "
                  "'%s' failed with error '%s'.",
@@ -2556,6 +2558,8 @@ when it try to get the value of TIME_ZONE global variable from master.";
 
       if (is_network_error(mysql_errno(mysql)))
       {
+        if (mysql_errno(mysql) == CR_CONN_HOST_ERROR)
+          __builtin_trap();
         mi->report(WARNING_LEVEL, mysql_errno(mysql),
                    "SET @master_heartbeat_period to master failed with error: %s",
                    mysql_error(mysql));
