@@ -4233,6 +4233,8 @@ loop:
 
 	if (block == NULL) {
 		block = (buf_block_t*) buf_page_hash_get_low(buf_pool, page_id);
+		if (block)
+			ut_a(block->page.buf_fix_count < UINT16_MAX);
 	}
 
 	if (!block || buf_pool_watch_is_sentinel(buf_pool, &block->page)) {
@@ -4330,6 +4332,7 @@ loop:
 #endif /* UNIV_DEBUG || UNIV_BUF_DEBUG */
 		goto loop;
 	} else {
+		ut_a(block->page.buf_fix_count < UINT16_MAX);
 		fix_block = block;
 	}
 
@@ -4338,13 +4341,16 @@ loop:
 		for synchronization between user thread and flush
 		thread, instead of block->lock. See buf_flush_page()
 		for the flush thread counterpart. */
+		ut_a(fix_block->page.buf_fix_count < UINT16_MAX);
 		BPageMutex*	fix_mutex = buf_page_get_mutex(
 			&fix_block->page);
 		mutex_enter(fix_mutex);
+		ut_a(fix_block->page.buf_fix_count < UINT16_MAX);
 		buf_block_fix(fix_block);
 		mutex_exit(fix_mutex);
 		ut_a(fix_block->page.buf_fix_count > 0);
 	} else {
+		ut_a(fix_block->page.buf_fix_count < UINT16_MAX);
 		buf_block_fix(fix_block);
 		ut_a(fix_block->page.buf_fix_count > 0);
 	}
