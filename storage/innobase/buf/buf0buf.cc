@@ -5143,7 +5143,7 @@ buf_page_init(
 	const page_size_t&	page_size,
 	buf_block_t*		block)
 {
-	ut_a(block->page.buf_fix_count == 0);
+//	ut_a(block->page.buf_fix_count == 0);
 
 	buf_page_t*	hash_page;
 
@@ -5172,6 +5172,7 @@ buf_page_init(
 	block->lock_hash_val = lock_rec_hash(page_id.space(),
 					     page_id.page_no());
 
+	ut_a(block->page.buf_fix_count == 0);
 	buf_page_init_low(&block->page);
 
 	/* Insert into the hash table of file pages */
