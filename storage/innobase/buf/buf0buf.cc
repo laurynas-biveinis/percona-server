@@ -5142,6 +5142,8 @@ buf_page_init(
 	const page_size_t&	page_size,
 	buf_block_t*		block)
 {
+	ut_a(block->page.buf_fix_count == 0);
+
 	buf_page_t*	hash_page;
 
 	ut_ad(buf_pool == buf_pool_get(page_id));
@@ -5168,6 +5170,8 @@ buf_page_init(
 
 	block->lock_hash_val = lock_rec_hash(page_id.space(),
 					     page_id.page_no());
+
+	ut_a(block->page.buf_fix_count == 0);
 
 	buf_page_init_low(&block->page);
 
@@ -5309,6 +5313,7 @@ buf_page_init_for_read(
 
 		ut_ad(!bpage);
 		bpage = &block->page;
+		ut_a(bpage->buf_fix_count == 0);
 
 		ut_ad(buf_pool_from_bpage(bpage) == buf_pool);
 
