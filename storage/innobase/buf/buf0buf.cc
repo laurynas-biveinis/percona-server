@@ -4822,6 +4822,8 @@ buf_page_optimistic_get(
 	}
 
 	buf_block_buf_fix_inc(block, file, line);
+	uintptr_t buf_fix_ptr
+		= reinterpret_cast<uintptr_t>(&block->page.buf_fix_count);
 
 	access_time = buf_page_is_accessed(&block->page);
 
@@ -4853,6 +4855,9 @@ buf_page_optimistic_get(
 	}
 
 	if (!success) {
+		uintptr_t buf_fix_ptr2
+		    = reinterpret_cast<uintptr_t>(&block->page.buf_fix_count);
+		ut_a(buf_fix_ptr == buf_fix_ptr2);
 		buf_block_buf_fix_dec(block);
 
 		return(FALSE);
@@ -5118,8 +5123,8 @@ buf_page_init_low(
 {
 	bpage->flush_type = BUF_FLUSH_LRU;
 	bpage->io_fix = BUF_IO_NONE;
-	ut_a(bpage->buf_fix_count == 0);
-//	bpage->buf_fix_count = 0;
+//	ut_a(bpage->buf_fix_count == 0);
+	bpage->buf_fix_count = 0;
 	bpage->freed_page_clock = 0;
 	bpage->access_time = 0;
 	bpage->newest_modification = 0;
@@ -5172,7 +5177,7 @@ buf_page_init(
 	block->lock_hash_val = lock_rec_hash(page_id.space(),
 					     page_id.page_no());
 
-//	ut_a(block->page.buf_fix_count == 0);
+	ut_a(block->page.buf_fix_count == 0);
 	buf_page_init_low(&block->page);
 
 	/* Insert into the hash table of file pages */
