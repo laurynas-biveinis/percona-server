@@ -5143,6 +5143,8 @@ buf_page_init(
 	const page_size_t&	page_size,
 	buf_block_t*		block)
 {
+	ut_a(block->page.buf_fix_count == 0);
+
 	buf_page_t*	hash_page;
 
 	ut_ad(buf_pool == buf_pool_get(page_id));
