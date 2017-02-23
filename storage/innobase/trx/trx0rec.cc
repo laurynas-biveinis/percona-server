@@ -945,6 +945,9 @@ trx_undo_page_report_modify(
 	ut_ad(flen == DATA_TRX_ID_LEN);
 
 	trx_id = trx_read_trx_id(field);
+	std::cerr << "trx_undo_page_report_modify: table = "
+		  << table->name << ", trx->id = " << trx->id
+		  << ", old record trx id = " << trx_id << "\n";
 
 	/* If it is an update of a delete marked record, then we are
 	allowed to ignore blob prefixes if the delete marking was done
@@ -965,6 +968,9 @@ trx_undo_page_report_modify(
 	/*----------------------------------------*/
 	/* Store then the fields required to uniquely determine the
 	record which will be modified in the clustered index */
+
+	std::cerr << "old record:\n";
+	rec_print(stderr, rec, index);
 
 	for (i = 0; i < dict_index_get_n_unique(index); i++) {
 

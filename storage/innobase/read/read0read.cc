@@ -616,6 +616,9 @@ MVCC::view_open(ReadView*& view, trx_t* trx)
 
 	}
 
+	std::cerr << "Opening a view for transaction id " << trx->id << ":\n";
+	view->print(stderr);
+
 	trx_sys_mutex_exit();
 }
 

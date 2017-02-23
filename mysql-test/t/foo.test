@@ -1,0 +1,62 @@
+--source include/have_innodb.inc
+
+--source include/count_sessions.inc
+
+SELECT * FROM INFORMATION_SCHEMA.XTRADB_READ_VIEW;
+
+CREATE TABLE t1(a INT PRIMARY KEY) ENGINE=InnoDB, STATS_PERSISTENT=0;
+INSERT INTO t1 VALUES(1);
+
+--connect(con2,localhost,root,,)
+--echo # con2
+SELECT CONNECTION_ID();
+START TRANSACTION WITH CONSISTENT SNAPSHOT;
+SELECT * FROM INFORMATION_SCHEMA.XTRADB_READ_VIEW;
+
+--connection default
+--echo # default
+UPDATE t1 SET a=2;
+
+--connection con2
+--echo # con2
+SELECT a FROM t1;
+
+connect(con3,localhost,root,,);
+--echo # con3
+SELECT CONNECTION_ID();
+START TRANSACTION WITH CONSISTENT SNAPSHOT;
+SELECT a FROM t1;
+
+--connection default
+--echo # default
+UPDATE t1 SET a=3;
+
+--connection con2
+--echo # con2
+SELECT a FROM t1;
+
+--connection con3
+--echo # con3
+SELECT a FROM t1;
+SELECT trx_id, trx_mysql_thread_id FROM INFORMATION_SCHEMA.INNODB_TRX;
+COMMIT;
+--disconnect con3
+
+--connection default
+--echo # default
+UPDATE t1 SET a=4;
+
+--connection con2
+--echo # con2
+SELECT a FROM t1;
+COMMIT;
+SELECT * FROM INFORMATION_SCHEMA.XTRADB_READ_VIEW;
+--disconnect con2
+
+--connection default
+--echo # default
+SELECT a FROM t1;
+
+DROP TABLE t1;
+
+--source include/wait_until_count_sessions.inc
