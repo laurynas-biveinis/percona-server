@@ -3114,12 +3114,12 @@ err_exit:
 			goto lookup;
 		}
 
+		buf_block_buf_fix_inc((buf_block_t*) bpage,
+				      __FILE__, __LINE__);
+
 		block_mutex = &((buf_block_t*) bpage)->mutex;
 
 		mutex_enter(block_mutex);
-
-		buf_block_buf_fix_inc((buf_block_t*) bpage,
-				      __FILE__, __LINE__);
 
 		goto got_block;
 	}
@@ -3635,12 +3635,9 @@ got_block:
 	if (mode == BUF_GET_IF_IN_POOL || mode == BUF_PEEK_IF_IN_POOL) {
 
 		buf_page_t*	fix_page = &fix_block->page;
-		BPageMutex*	fix_mutex = buf_page_get_mutex(fix_page);
-
-		mutex_enter(fix_mutex);
+		os_rmb;
 		const bool	must_read
 		     = (buf_page_get_io_fix_unlocked(fix_page) == BUF_IO_READ);
-		mutex_exit(fix_mutex);
 
 		if (must_read) {
 			/* The page is being read to buffer pool,
@@ -4100,9 +4097,7 @@ buf_page_optimistic_get(
 	}
 
 	if (!success) {
-		buf_page_mutex_enter(block);
 		buf_block_buf_fix_dec(block);
-		buf_page_mutex_exit(block);
 
 		return(FALSE);
 	}
@@ -4117,9 +4112,7 @@ buf_page_optimistic_get(
 			rw_lock_x_unlock(&block->lock);
 		}
 
-		buf_page_mutex_enter(block);
 		buf_block_buf_fix_dec(block);
-		buf_page_mutex_exit(block);
 
 		return(FALSE);
 	}
@@ -4225,9 +4218,7 @@ buf_page_get_known_nowait(
 	}
 
 	if (!success) {
-		buf_page_mutex_enter(block);
 		buf_block_buf_fix_dec(block);
-		buf_page_mutex_exit(block);
 
 		return(FALSE);
 	}
@@ -4297,16 +4288,16 @@ buf_page_try_get_func(
 
 	ut_ad(!buf_pool_watch_is_sentinel(buf_pool, &block->page));
 
-	buf_page_mutex_enter(block);
+	buf_block_buf_fix_inc(block, file, line);
+
 	rw_lock_s_unlock(hash_lock);
 
 #if defined UNIV_DEBUG || defined UNIV_BUF_DEBUG
+	buf_page_mutex_enter(block);
 	ut_a(buf_block_get_state(block) == BUF_BLOCK_FILE_PAGE);
 	ut_a(page_id.equals_to(block->page.id));
-#endif /* UNIV_DEBUG || UNIV_BUF_DEBUG */
-
-	buf_block_buf_fix_inc(block, file, line);
 	buf_page_mutex_exit(block);
+#endif /* UNIV_DEBUG || UNIV_BUF_DEBUG */
 
 	mtr_memo_type_t	fix_type = MTR_MEMO_PAGE_S_FIX;
 	success = rw_lock_s_lock_nowait(&block->lock, file, line);
@@ -4322,9 +4313,7 @@ buf_page_try_get_func(
 	}
 
 	if (!success) {
-		buf_page_mutex_enter(block);
 		buf_block_buf_fix_dec(block);
-		buf_page_mutex_exit(block);
 
 		return(NULL);
 	}
