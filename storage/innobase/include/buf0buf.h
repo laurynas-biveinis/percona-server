@@ -569,7 +569,7 @@ buf_page_get_newest_modification(
 
 /** Increment the modify clock.
 The caller must
-(1) own the buf_pool->mutex and block bufferfix count has to be zero,
+(1) own the buffer block mutex and block bufferfix count has to be zero,
 (2) own X or SX latch on the block->lock, or
 (3) operate on a thread-private temporary table
 @param[in,out]	block	buffer block */
