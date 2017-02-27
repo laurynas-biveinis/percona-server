@@ -3114,7 +3114,7 @@ err_exit:
 			goto lookup;
 		}
 
-		buf_block_buf_fix_inc((buf_block_t*) bpage,
+		buf_block_buf_fix_inc(reinterpret_cast<buf_block_t*>(bpage),
 				      __FILE__, __LINE__);
 
 		block_mutex = &((buf_block_t*) bpage)->mutex;
@@ -4048,7 +4048,6 @@ buf_page_optimistic_get(
 	mtr_t*		mtr)	/*!< in: mini-transaction */
 {
 	buf_pool_t*	buf_pool;
-	unsigned	access_time;
 	ibool		success;
 
 	ut_ad(block);
@@ -4058,7 +4057,9 @@ buf_page_optimistic_get(
 
 	buf_page_mutex_enter(block);
 
-	if (buf_block_get_state(block) != BUF_BLOCK_FILE_PAGE) {
+	if (UNIV_UNLIKELY(block->modify_clock != modify_clock
+			  || (buf_block_get_state(block)
+			      != BUF_BLOCK_FILE_PAGE))) {
 
 		buf_page_mutex_exit(block);
 
@@ -4067,13 +4068,7 @@ buf_page_optimistic_get(
 
 	buf_block_buf_fix_inc(block, file, line);
 
-	access_time = buf_page_is_accessed(&block->page);
-
-	buf_page_set_accessed(&block->page);
-
 	buf_page_mutex_exit(block);
-
-	buf_page_make_young_if_needed(&block->page);
 
 	ut_ad(!ibuf_inside(mtr)
 	      || ibuf_page(block->page.id, block->page.size, NULL));
@@ -4096,13 +4091,13 @@ buf_page_optimistic_get(
 		ut_error; /* RW_SX_LATCH is not implemented yet */
 	}
 
-	if (!success) {
+	if (UNIV_UNLIKELY(!success)) {
 		buf_block_buf_fix_dec(block);
 
 		return(FALSE);
 	}
 
-	if (modify_clock != block->modify_clock) {
+	if (UNIV_UNLIKELY(modify_clock != block->modify_clock)) {
 
 		buf_block_dbg_add_level(block, SYNC_NO_ORDER_CHECK);
 
@@ -4117,6 +4112,18 @@ buf_page_optimistic_get(
 		return(FALSE);
 	}
 
+	buf_page_mutex_enter(block);
+
+	const auto access_time = buf_page_is_accessed(&block->page);
+
+	buf_page_set_accessed(&block->page);
+
+	ut_ad(!block->page.file_page_was_freed);
+
+	buf_page_mutex_exit(block);
+
+	buf_page_make_young_if_needed(&block->page);
+
 	mtr_memo_push(mtr, block, fix_type);
 
 #if defined UNIV_DEBUG || defined UNIV_BUF_DEBUG
@@ -4126,10 +4133,6 @@ buf_page_optimistic_get(
 	ut_a(block->page.buf_fix_count > 0);
 	ut_a(buf_block_get_state(block) == BUF_BLOCK_FILE_PAGE);
 #endif /* UNIV_DEBUG || UNIV_BUF_DEBUG */
-
-	ut_d(buf_page_mutex_enter(block));
-	ut_ad(!block->page.file_page_was_freed);
-	ut_d(buf_page_mutex_exit(block));
 
 	if (!access_time) {
 		/* In the case of a first access, try to apply linear
@@ -4353,7 +4356,7 @@ buf_page_init_low(
 {
 	bpage->flush_type = BUF_FLUSH_LRU;
 	bpage->io_fix = BUF_IO_NONE;
-	bpage->buf_fix_count = 0;
+	ut_a(bpage->buf_fix_count == 0);
 	bpage->freed_page_clock = 0;
 	bpage->access_time = 0;
 	bpage->newest_modification = 0;
