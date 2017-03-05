@@ -5966,10 +5966,10 @@ int Rotate_log_event::do_update_pos(Relay_log_info *rli)
     if (rli->is_parallel_exec())
     {
       bool real_event= server_id && !is_artificial_event();
+      const auto ts= common_header->when.tv_sec
+        + static_cast<time_t>(exec_time);
       rli->reset_notified_checkpoint(0,
-                                     real_event ?
-                                     common_header->when.tv_sec +
-                                     (time_t) exec_time : 0,
+                                     real_event ? &ts : nullptr,
                                      true/*need_data_lock=true*/);
     }
 
