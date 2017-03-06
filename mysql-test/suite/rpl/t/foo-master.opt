@@ -1,0 +1,1 @@
+--gtid-mode=ON --log-slave-updates --enforce-gtid-consistency --lower-case-table-names --transaction-isolation=read-committed

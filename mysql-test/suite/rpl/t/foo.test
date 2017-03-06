@@ -1,0 +1,48 @@
+--source include/have_innodb.inc
+--source include/have_binlog_format_row.inc
+--source include/master-slave.inc
+--source include/count_sessions.inc
+
+CREATE TABLE t1 (t1_pk INT PRIMARY KEY, t1_blob BLOB) ENGINE=InnoDB;
+
+INSERT INTO t1 VALUES (1, REPEAT("a", 65000));
+INSERT INTO t1 VALUES (2, REPEAT("a" ,65000));
+INSERT INTO t1 VALUES (3, REPEAT("a", 5165));
+INSERT INTO t1 VALUES (4, REPEAT("a", 5158));
+
+CREATE TABLE t2 (t2_pk INT PRIMARY KEY, t1_pk INT,
+  FOREIGN KEY (t1_pk) REFERENCES t1 (t1_pk)) ENGINE=InnoDB;
+
+XA START '1';
+
+--connect(con2,localhost,root)
+XA START '2';
+INSERT INTO t1 VALUES (5, NULL);
+
+--connection master
+INSERT INTO t1 VALUES (6, REPEAT("a", 8000));
+
+INSERT INTO t2 VALUES (4, 6);
+
+XA END '1';
+XA PREPARE '1';
+
+--connection con2
+XA END '2';
+XA PREPARE '2';
+
+--connection master
+XA COMMIT '1';
+
+--connection con2
+XA COMMIT '2';
+
+--source include/sync_slave_sql_with_master.inc
+
+--disconnect con2
+
+--connection master
+DROP TABLE t2, t1;
+--source include/wait_until_count_sessions.inc
+
+--source include/rpl_end.inc
