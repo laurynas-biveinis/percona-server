@@ -466,15 +466,15 @@ bool Sql_cmd_delete::delete_from_single_table(THD *thd)
       DBUG_RETURN(true);
     }
 
+    if (select_lex->has_ft_funcs() && init_ftfuncs(thd, select_lex))
+      DBUG_RETURN(true);
+
     if (usable_index==MAX_KEY || qep_tab.quick())
       error= init_read_record(&info, thd, NULL, &qep_tab, 1, 1, FALSE);
     else
       error= init_read_record_idx(&info, thd, table, 1, usable_index, reverse);
 
     if (error)
-      DBUG_RETURN(true);                 /* purecov: inspected */
-
-    if (select_lex->has_ft_funcs() && init_ftfuncs(thd, select_lex))
       DBUG_RETURN(true);                 /* purecov: inspected */
 
     THD_STAGE_INFO(thd, stage_updating);
