@@ -411,6 +411,9 @@ bool Sql_cmd_delete::mysql_delete(THD *thd, ha_rows limit)
       goto exit_without_my_ok;
     }
 
+    if (select_lex->has_ft_funcs() && init_ftfuncs(thd, select_lex))
+      goto exit_without_my_ok;
+
     if (usable_index==MAX_KEY || qep_tab.quick())
       error= init_read_record(&info, thd, NULL, &qep_tab, 1, 1, FALSE);
     else
@@ -421,9 +424,6 @@ bool Sql_cmd_delete::mysql_delete(THD *thd, ha_rows limit)
       err= true; /* purecov: inspected */
       goto exit_without_my_ok;
     }
-
-    if (select_lex->has_ft_funcs() && init_ftfuncs(thd, select_lex))
-      goto exit_without_my_ok;
 
     THD_STAGE_INFO(thd, stage_updating);
 
