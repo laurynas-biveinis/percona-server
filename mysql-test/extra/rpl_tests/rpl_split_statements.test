@@ -35,9 +35,9 @@
 #
 #  2. DROP TABLE: when a single statement drops multiple tables, then
 #     there will be a separate statement for all dropped non-temporary
-#     tables, a separate statement for all dropped transactional
-#     temporary tables, and a separate statement for all dropped
-#     non-transactional tables.
+#     tables, with statement binlog format a separate statement for all
+#     dropped transactional temporary tables, and a separate statement
+#     for all dropped non-transactional tables.
 #
 #  3. DROP DATABASE: this statement will first drop all non-temporary
 #     tables in the database, and then try to remove the database
@@ -272,10 +272,6 @@ END|
 --echo ---- GTID_MODE=AUTOMATIC ----
 
 --let $automatic= 1
-if ($gtid_mode_on)
-{
-  --let $expect_slave_error= 1
-}
 --let $transaction_count= 1
 --source extra/rpl_tests/rpl_drop_multiple_tables_in_multiple_ways.inc
 
