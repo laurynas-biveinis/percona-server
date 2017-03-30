@@ -231,7 +231,7 @@ public:
   Element_type* head_queue()
   {
     if (empty())
-      return NULL;
+      return nullptr;
     return &m_Q[entry];
   }
 

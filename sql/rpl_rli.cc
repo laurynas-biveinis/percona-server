@@ -275,7 +275,7 @@ void Relay_log_info::reset_notified_relay_log_change()
    @param shift          number of bits to shift by Worker due to the
                          current checkpoint change.
    @param new_ts         new seconds_behind_master timestamp value
-                         unless NULL. NULL could be due to FD event.
+                         unless nullptr. nullptr could be due to FD event.
    @param need_data_lock False if caller has locked @c data_lock
 */
 void Relay_log_info::reset_notified_checkpoint(ulong shift,

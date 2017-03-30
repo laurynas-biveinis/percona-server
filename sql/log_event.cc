@@ -5606,9 +5606,10 @@ int Rotate_log_event::do_update_pos(Relay_log_info *rli)
     mysql_mutex_unlock(&rli->data_lock);
     if (rli->is_parallel_exec())
     {
-      time_t ts= common_header->when.tv_sec + static_cast<time_t>(exec_time);
+      const auto ts= common_header->when.tv_sec
+        + static_cast<time_t>(exec_time);
       rli->reset_notified_checkpoint(0,
-                                     server_id ? &ts : NULL,
+                                     server_id ? &ts : nullptr,
                                      true/*need_data_lock=true*/);
     }
     /*
