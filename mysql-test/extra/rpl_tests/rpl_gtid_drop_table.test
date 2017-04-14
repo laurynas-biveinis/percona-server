@@ -35,6 +35,13 @@
 --source include/rpl_default_connections.inc
 --source include/have_myisam.inc
 
+# Create two regular tables and two temporary tables with distinct storage engines
+--source include/rpl_connection_master.inc
+CREATE TABLE trans_t1 (c1 INT) ENGINE=InnoDB;
+CREATE TABLE non_trans_t1 (c1 INT) ENGINE=MyISAM;
+CREATE TEMPORARY TABLE temp_trans_t1 (c1 INT) ENGINE=InnoDB;
+CREATE TEMPORARY TABLE temp_non_trans_t1 (c1 INT) ENGINE=MyISAM;
+
 --echo #
 --echo # First part
 --echo #
@@ -43,6 +50,9 @@
 # creating three tables (one regular and two temporary), setting session
 # GTID_NEXT to a specific GTID and then trying to issue a DROP TABLE
 # statement containing the combinations of at least two tables.
+#
+# This part only applies to statement binary log format, as otherwise temporary
+# table operations are completely invisible to the binary log.
 #
 # As DROP statements with both regular and temporary tables or with
 # transactional and non transactional temporary tables are split before
@@ -74,83 +84,80 @@
 # ER_BAD_TABLE_ERROR cases, the existent tables will be dropped regardless the
 # error.
 
-# Create two regular tables and two temporary tables with distinct storage engines
---source include/rpl_connection_master.inc
-CREATE TABLE trans_t1 (c1 INT) ENGINE=InnoDB;
-CREATE TABLE non_trans_t1 (c1 INT) ENGINE=MyISAM;
-CREATE TEMPORARY TABLE temp_trans_t1 (c1 INT) ENGINE=InnoDB;
-CREATE TEMPORARY TABLE temp_non_trans_t1 (c1 INT) ENGINE=MyISAM;
+--let $binlog_format= `SELECT @@GLOBAL.binlog_format`
+if ($binlog_format == "STATEMENT")
+{
+  --echo # Error cases ER_GTID_UNSAFE_BINLOG_SPLITTABLE_STATEMENT_AND_GTID_GROUP
+  --let $next_gtid= '11111111-1111-1111-1111-111111111111:1'
+  --let $expected_error= ER_GTID_UNSAFE_BINLOG_SPLITTABLE_STATEMENT_AND_GTID_GROUP
 
---echo # Error cases ER_GTID_UNSAFE_BINLOG_SPLITTABLE_STATEMENT_AND_GTID_GROUP
---let $next_gtid= '11111111-1111-1111-1111-111111111111:1'
---let $expected_error= ER_GTID_UNSAFE_BINLOG_SPLITTABLE_STATEMENT_AND_GTID_GROUP
-
-# reg trans + reg non trans + temp trans
---let $statement= DROP TABLE trans_t1, non_trans_t1, temp_trans_t1
---source extra/rpl_tests/rpl_gtid_drop_table.inc
-# reg trans + reg non trans + temp trans + temp non trans
---let $statement= DROP TABLE trans_t1, non_trans_t1, temp_trans_t1, temp_non_trans_t1
---source extra/rpl_tests/rpl_gtid_drop_table.inc
-# reg trans + reg non trans + temp trans + temp non trans + inexistent
---let $statement= DROP TABLE trans_t1, non_trans_t1, temp_trans_t1, temp_non_trans_t1, non_existent
---source extra/rpl_tests/rpl_gtid_drop_table.inc
-# reg trans + reg non trans + temp trans + inexistent
---let $statement= DROP TABLE trans_t1, non_trans_t1, temp_trans_t1, non_existent
---source extra/rpl_tests/rpl_gtid_drop_table.inc
-# reg trans + reg non trans + temp non trans
---let $statement= DROP TABLE trans_t1, non_trans_t1, temp_non_trans_t1
---source extra/rpl_tests/rpl_gtid_drop_table.inc
-# reg trans + reg non trans + temp non trans + inexistent
---let $statement= DROP TABLE trans_t1, non_trans_t1, temp_non_trans_t1, non_existent
---source extra/rpl_tests/rpl_gtid_drop_table.inc
-# reg trans + temp trans
---let $statement= DROP TABLE trans_t1, temp_trans_t1
---source extra/rpl_tests/rpl_gtid_drop_table.inc
-# reg trans + temp trans + temp non trans
---let $statement= DROP TABLE trans_t1, temp_trans_t1, temp_non_trans_t1
---source extra/rpl_tests/rpl_gtid_drop_table.inc
-# reg trans + temp trans + temp non trans + inexistent
---let $statement= DROP TABLE trans_t1, temp_trans_t1, temp_non_trans_t1, non_existent
---source extra/rpl_tests/rpl_gtid_drop_table.inc
-# reg trans + temp trans + inexistent
---let $statement= DROP TABLE trans_t1, temp_trans_t1, non_existent
---source extra/rpl_tests/rpl_gtid_drop_table.inc
-# reg trans + temp non trans
---let $statement= DROP TABLE trans_t1, temp_non_trans_t1
---source extra/rpl_tests/rpl_gtid_drop_table.inc
-# reg trans + temp non trans + inexistent
---let $statement= DROP TABLE trans_t1, temp_non_trans_t1, non_existent
---source extra/rpl_tests/rpl_gtid_drop_table.inc
-# reg non trans + temp trans
---let $statement= DROP TABLE non_trans_t1, temp_trans_t1
---source extra/rpl_tests/rpl_gtid_drop_table.inc
-# reg non trans + temp trans + temp non trans
---let $statement= DROP TABLE non_trans_t1, temp_trans_t1, temp_non_trans_t1
---source extra/rpl_tests/rpl_gtid_drop_table.inc
-# reg non trans + temp trans + temp non trans + inexistent
---let $statement= DROP TABLE non_trans_t1, temp_trans_t1, temp_non_trans_t1, non_existent
---source extra/rpl_tests/rpl_gtid_drop_table.inc
-# reg non trans + temp trans + inexistent
---let $statement= DROP TABLE non_trans_t1, temp_trans_t1, non_existent
---source extra/rpl_tests/rpl_gtid_drop_table.inc
-# reg non trans + temp non trans
---let $statement= DROP TABLE non_trans_t1, temp_non_trans_t1
---source extra/rpl_tests/rpl_gtid_drop_table.inc
-# reg non trans + temp non trans + inexistent
---let $statement= DROP TABLE non_trans_t1, temp_non_trans_t1, non_existent
---source extra/rpl_tests/rpl_gtid_drop_table.inc
-# temp trans + temp non trans
---let $statement= DROP TABLE temp_trans_t1, temp_non_trans_t1
---source extra/rpl_tests/rpl_gtid_drop_table.inc
-# temp trans + temp non trans + inexistent
---let $statement= DROP TABLE temp_trans_t1, temp_non_trans_t1, non_existent
---source extra/rpl_tests/rpl_gtid_drop_table.inc
-# temp trans + inexistent
---let $statement= DROP TABLE temp_trans_t1, non_existent
---source extra/rpl_tests/rpl_gtid_drop_table.inc
-# temp non trans + inexistent
---let $statement= DROP TABLE temp_non_trans_t1, non_existent
---source extra/rpl_tests/rpl_gtid_drop_table.inc
+  # reg trans + reg non trans + temp trans
+  --let $statement= DROP TABLE trans_t1, non_trans_t1, temp_trans_t1
+  --source extra/rpl_tests/rpl_gtid_drop_table.inc
+  # reg trans + reg non trans + temp trans + temp non trans
+  --let $statement= DROP TABLE trans_t1, non_trans_t1, temp_trans_t1, temp_non_trans_t1
+  --source extra/rpl_tests/rpl_gtid_drop_table.inc
+  # reg trans + reg non trans + temp trans + temp non trans + inexistent
+  --let $statement= DROP TABLE trans_t1, non_trans_t1, temp_trans_t1, temp_non_trans_t1, non_existent
+  --source extra/rpl_tests/rpl_gtid_drop_table.inc
+  # reg trans + reg non trans + temp trans + inexistent
+  --let $statement= DROP TABLE trans_t1, non_trans_t1, temp_trans_t1, non_existent
+  --source extra/rpl_tests/rpl_gtid_drop_table.inc
+  # reg trans + reg non trans + temp non trans
+  --let $statement= DROP TABLE trans_t1, non_trans_t1, temp_non_trans_t1
+  --source extra/rpl_tests/rpl_gtid_drop_table.inc
+  # reg trans + reg non trans + temp non trans + inexistent
+  --let $statement= DROP TABLE trans_t1, non_trans_t1, temp_non_trans_t1, non_existent
+  --source extra/rpl_tests/rpl_gtid_drop_table.inc
+  # reg trans + temp trans
+  --let $statement= DROP TABLE trans_t1, temp_trans_t1
+  --source extra/rpl_tests/rpl_gtid_drop_table.inc
+  # reg trans + temp trans + temp non trans
+  --let $statement= DROP TABLE trans_t1, temp_trans_t1, temp_non_trans_t1
+  --source extra/rpl_tests/rpl_gtid_drop_table.inc
+  # reg trans + temp trans + temp non trans + inexistent
+  --let $statement= DROP TABLE trans_t1, temp_trans_t1, temp_non_trans_t1, non_existent
+  --source extra/rpl_tests/rpl_gtid_drop_table.inc
+  # reg trans + temp trans + inexistent
+  --let $statement= DROP TABLE trans_t1, temp_trans_t1, non_existent
+  --source extra/rpl_tests/rpl_gtid_drop_table.inc
+  # reg trans + temp non trans
+  --let $statement= DROP TABLE trans_t1, temp_non_trans_t1
+  --source extra/rpl_tests/rpl_gtid_drop_table.inc
+  # reg trans + temp non trans + inexistent
+  --let $statement= DROP TABLE trans_t1, temp_non_trans_t1, non_existent
+  --source extra/rpl_tests/rpl_gtid_drop_table.inc
+  # reg non trans + temp trans
+  --let $statement= DROP TABLE non_trans_t1, temp_trans_t1
+  --source extra/rpl_tests/rpl_gtid_drop_table.inc
+  # reg non trans + temp trans + temp non trans
+  --let $statement= DROP TABLE non_trans_t1, temp_trans_t1, temp_non_trans_t1
+  --source extra/rpl_tests/rpl_gtid_drop_table.inc
+  # reg non trans + temp trans + temp non trans + inexistent
+  --let $statement= DROP TABLE non_trans_t1, temp_trans_t1, temp_non_trans_t1, non_existent
+  --source extra/rpl_tests/rpl_gtid_drop_table.inc
+  # reg non trans + temp trans + inexistent
+  --let $statement= DROP TABLE non_trans_t1, temp_trans_t1, non_existent
+  --source extra/rpl_tests/rpl_gtid_drop_table.inc
+  # reg non trans + temp non trans
+  --let $statement= DROP TABLE non_trans_t1, temp_non_trans_t1
+  --source extra/rpl_tests/rpl_gtid_drop_table.inc
+  # reg non trans + temp non trans + inexistent
+  --let $statement= DROP TABLE non_trans_t1, temp_non_trans_t1, non_existent
+  --source extra/rpl_tests/rpl_gtid_drop_table.inc
+  # temp trans + temp non trans
+  --let $statement= DROP TABLE temp_trans_t1, temp_non_trans_t1
+  --source extra/rpl_tests/rpl_gtid_drop_table.inc
+  # temp trans + temp non trans + inexistent
+  --let $statement= DROP TABLE temp_trans_t1, temp_non_trans_t1, non_existent
+  --source extra/rpl_tests/rpl_gtid_drop_table.inc
+  # temp trans + inexistent
+  --let $statement= DROP TABLE temp_trans_t1, non_existent
+  --source extra/rpl_tests/rpl_gtid_drop_table.inc
+  # temp non trans + inexistent
+  --let $statement= DROP TABLE temp_non_trans_t1, non_existent
+  --source extra/rpl_tests/rpl_gtid_drop_table.inc
+}
 
 --echo # Error cases ER_BAD_TABLE_ERROR.
 # All error cases below are no-ops.
