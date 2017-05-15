@@ -3808,7 +3808,7 @@ bool Sys_var_gtid_set::session_update(THD *thd, set_var *var)
 #endif // HAVE_GTID_NEXT_LIST
 
 
-bool Sys_var_gtid_mode::global_update(THD*, set_var *var)
+bool Sys_var_gtid_mode::global_update(THD* thd, set_var *var)
 {
   DBUG_ENTER("Sys_var_gtid_mode::global_update");
   bool ret= true;
@@ -3835,6 +3835,7 @@ bool Sys_var_gtid_mode::global_update(THD*, set_var *var)
     to take the other locks.
   */
   gtid_mode_lock->wrlock();
+  DEBUG_SYNC(thd, "gtid_mode_update_gtid_mode_lock_wrlock_taken_will_take_global_sid_lock");
   channel_map.wrlock();
   mysql_mutex_lock(mysql_bin_log.get_log_lock());
   global_sid_lock->wrlock();
