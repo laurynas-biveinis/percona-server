@@ -55,6 +55,7 @@ upgrading to an InnoDB version which supports multiple tablespaces, then this
 function performs the necessary update operations. If we are in a crash
 recovery, this function loads the pages from double write buffer into memory.
 @return DB_SUCCESS or error code */
+MY_ATTRIBUTE((warn_unused_result))
 dberr_t
 buf_dblwr_init_or_load_pages(
 	pfs_os_file_t	file,
