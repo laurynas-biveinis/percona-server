@@ -183,6 +183,7 @@ my_crypt(char *to, const uchar *s1, const uchar *s2, uint len)
 }
 
 #if defined(HAVE_OPENSSL)
+MY_ATTRIBUTE((externally_visible))
 void my_make_scrambled_password(char *to, const char *password,
                                 size_t pass_len)
 {

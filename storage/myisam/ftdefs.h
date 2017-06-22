@@ -127,8 +127,8 @@ uint _mi_ft_parse(TREE *, MI_INFO *, uint, const uchar *,
                   MYSQL_FTPARSER_PARAM *, MEM_ROOT *);
 
 FT_INFO *ft_init_nlq_search(MI_INFO *, uint, uchar *, uint, uint, uchar *);
-FT_INFO *ft_init_boolean_search(MI_INFO *, uint, uchar *, uint,
-                                const CHARSET_INFO *);
+extern FT_INFO *ft_init_boolean_search(MI_INFO *, uint, uchar *, uint,
+                                       const CHARSET_INFO *);
 
 extern const struct _ft_vft _ft_vft_nlq;
 int ft_nlq_read_next(FT_INFO *, char *);

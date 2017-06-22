@@ -84,6 +84,7 @@ int set_crt_report_leaks()
     @retval FALSE Success
     @retval TRUE  Error. Couldn't initialize environment
 */
+MY_ATTRIBUTE((externally_visible))
 my_bool my_init()
 {
   char *str;

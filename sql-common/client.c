@@ -1607,6 +1607,7 @@ void end_server(MYSQL *mysql)
 }
 
 
+MY_ATTRIBUTE((externally_visible))
 void STDCALL
 mysql_free_result(MYSQL_RES *result)
 {
@@ -2470,6 +2471,7 @@ read_one_row(MYSQL *mysql,uint fields,MYSQL_ROW row, ulong *lengths)
 ****************************************************************************/
 
 
+MY_ATTRIBUTE((externally_visible))
 MYSQL * STDCALL
 mysql_init(MYSQL *mysql)
 {
@@ -2572,6 +2574,7 @@ void mysql_extension_free(struct st_mysql_extension* ext)
   NB! Errors are not reported until you do mysql_real_connect.
 */
 
+MY_ATTRIBUTE((externally_visible))
 my_bool STDCALL
 mysql_ssl_set(MYSQL *mysql MY_ATTRIBUTE((unused)) ,
 	      const char *key MY_ATTRIBUTE((unused)),
@@ -2651,6 +2654,7 @@ mysql_ssl_free(MYSQL *mysql MY_ATTRIBUTE((unused)))
 
 */
 
+MY_ATTRIBUTE((externally_visible))
 const char * STDCALL
 mysql_get_ssl_cipher(MYSQL *mysql MY_ATTRIBUTE((unused)))
 {
@@ -4177,6 +4181,7 @@ set_connect_attributes(MYSQL *mysql, char *buff, size_t buf_len)
 }
 
 
+MY_ATTRIBUTE((externally_visible))
 MYSQL * STDCALL 
 CLI_MYSQL_REAL_CONNECT(MYSQL *mysql,const char *host, const char *user,
 		       const char *passwd, const char *db,
@@ -4951,6 +4956,7 @@ my_bool mysql_reconnect(MYSQL *mysql)
   Set current database
 **************************************************************************/
 
+MY_ATTRIBUTE((externally_visible))
 int STDCALL
 mysql_select_db(MYSQL *mysql, const char *db)
 {
@@ -5127,6 +5133,7 @@ void mysql_detach_stmt_list(LIST **stmt_list MY_ATTRIBUTE((unused)),
 }
 
 
+MY_ATTRIBUTE((externally_visible))
 void STDCALL mysql_close(MYSQL *mysql)
 {
   DBUG_ENTER("mysql_close");
@@ -5228,6 +5235,7 @@ get_info:
   finish processing it.
 */
 
+MY_ATTRIBUTE((externally_visible))
 int STDCALL
 mysql_send_query(MYSQL* mysql, const char* query, ulong length)
 {
@@ -5242,6 +5250,7 @@ mysql_send_query(MYSQL* mysql, const char* query, ulong length)
 }
 
 
+MY_ATTRIBUTE((externally_visible))
 int STDCALL
 mysql_real_query(MYSQL *mysql, const char *query, ulong length)
 {
@@ -5268,6 +5277,7 @@ mysql_real_query(MYSQL *mysql, const char *query, ulong length)
   mysql_data_seek may be used.
 **************************************************************************/
 
+MY_ATTRIBUTE((externally_visible))
 MYSQL_RES * STDCALL mysql_store_result(MYSQL *mysql)
 {
   MYSQL_RES *result;
@@ -5367,6 +5377,7 @@ static MYSQL_RES * cli_use_result(MYSQL *mysql)
   Return next row of the query results
 **************************************************************************/
 
+MY_ATTRIBUTE((externally_visible))
 MYSQL_ROW STDCALL
 mysql_fetch_row(MYSQL_RES *res)
 {
@@ -5422,6 +5433,7 @@ mysql_fetch_row(MYSQL_RES *res)
   else the lengths are calculated from the offset between pointers.
 **************************************************************************/
 
+MY_ATTRIBUTE((externally_visible))
 ulong * STDCALL
 mysql_fetch_lengths(MYSQL_RES *res)
 {
@@ -5434,6 +5446,7 @@ mysql_fetch_lengths(MYSQL_RES *res)
   return res->lengths;
 }
 
+MY_ATTRIBUTE((externally_visible))
 int STDCALL
 mysql_options(MYSQL *mysql,enum mysql_option option, const void *arg)
 {
@@ -5713,6 +5726,7 @@ mysql_options(MYSQL *mysql,enum mysql_option option, const void *arg)
   @retval 0 SUCCESS
 */
 
+MY_ATTRIBUTE((externally_visible))
 int STDCALL
 mysql_get_option(MYSQL *mysql, enum mysql_option option, const void *arg)
 {
@@ -5886,6 +5900,7 @@ get_attr_key(LEX_STRING *part, size_t *length,
   return (uchar *) part[0].str;
 }
 
+MY_ATTRIBUTE((externally_visible))
 int STDCALL
 mysql_options4(MYSQL *mysql,enum mysql_option option,
                const void *arg1, const void *arg2)
@@ -5986,22 +6001,26 @@ mysql_options4(MYSQL *mysql,enum mysql_option option,
 ****************************************************************************/
 
 /* MYSQL_RES */
+MY_ATTRIBUTE((externally_visible))
 my_ulonglong STDCALL mysql_num_rows(MYSQL_RES *res)
 {
   return res->row_count;
 }
 
+MY_ATTRIBUTE((externally_visible))
 unsigned int STDCALL mysql_num_fields(MYSQL_RES *res)
 {
   return res->field_count;
 }
 
+MY_ATTRIBUTE((externally_visible))
 uint STDCALL mysql_errno(MYSQL *mysql)
 {
   return mysql ? mysql->net.last_errno : mysql_server_last_errno;
 }
 
 
+MY_ATTRIBUTE((externally_visible))
 const char * STDCALL mysql_error(MYSQL *mysql)
 {
   return mysql ? mysql->net.last_error : mysql_server_last_error;
@@ -6045,6 +6064,7 @@ static int get_data_and_length(LIST *node, const char **data, size_t *length)
     1 - No data
 */
 
+MY_ATTRIBUTE((externally_visible))
 int STDCALL mysql_session_track_get_first(MYSQL *mysql,
                                           enum enum_session_state_type type,
                                           const char **data,
@@ -6075,6 +6095,7 @@ int STDCALL mysql_session_track_get_first(MYSQL *mysql,
     1 - No data
 */
 
+MY_ATTRIBUTE((externally_visible))
 int STDCALL mysql_session_track_get_next(MYSQL *mysql,
                                          enum enum_session_state_type type,
                                          const char **data,
@@ -6114,6 +6135,7 @@ int STDCALL mysql_session_track_get_next(MYSQL *mysql,
    Zero if there is no connection
 */
 
+MY_ATTRIBUTE((externally_visible))
 ulong STDCALL
 mysql_get_server_version(MYSQL *mysql)
 {
@@ -6141,6 +6163,7 @@ mysql_get_server_version(MYSQL *mysql)
    and character_set_connection) and updates mysql->charset so other
    functions like mysql_real_escape will work correctly.
 */
+MY_ATTRIBUTE((externally_visible))
 int STDCALL mysql_set_character_set(MYSQL *mysql, const char *cs_name)
 {
   struct charset_info_st *cs;

@@ -628,6 +628,7 @@ my_bool my_defaults_read_login_file= TRUE;
 */
 
 
+MY_ATTRIBUTE((externally_visible))
 int my_load_defaults(const char *conf_file, const char **groups,
                   int *argc, char ***argv, const char ***default_directories)
 {

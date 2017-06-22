@@ -290,6 +290,7 @@ void my_getopt_register_get_addr(my_getopt_value func_addr)
   @return Error in case of ambiguous or unknown options,
           0 on success.
 */
+MY_ATTRIBUTE((externally_visible))
 int handle_options(int *argc, char ***argv,
 		   const struct my_option *longopts,
                    my_get_one_option get_one_option)

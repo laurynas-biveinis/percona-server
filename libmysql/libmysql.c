@@ -102,6 +102,7 @@ typedef struct st_mysql_stmt_extension
     1  could not initialize environment (out of memory or thread keys)
 */
 
+MY_ATTRIBUTE((externally_visible))
 int STDCALL mysql_server_init(int argc MY_ATTRIBUTE((unused)),
 			      char **argv MY_ATTRIBUTE((unused)),
 			      char **groups MY_ATTRIBUTE((unused)))
@@ -182,7 +183,7 @@ int STDCALL mysql_server_init(int argc MY_ATTRIBUTE((unused)),
     function automaticly), it's safe to call this function multiple times.
 */
 
-
+MY_ATTRIBUTE((externally_visible))
 void STDCALL mysql_server_end()
 {
   if (!mysql_client_init)
@@ -210,11 +211,13 @@ void STDCALL mysql_server_end()
   mysql_client_init= org_my_init_done= 0;
 }
 
+MY_ATTRIBUTE((externally_visible))
 my_bool STDCALL mysql_thread_init()
 {
   return my_thread_init();
 }
 
+MY_ATTRIBUTE((externally_visible))
 void STDCALL mysql_thread_end()
 {
   my_thread_end();
@@ -250,6 +253,7 @@ append_wild(char *to, char *end, const char *wild)
   Init debugging if MYSQL_DEBUG environment variable is found
 **************************************************************************/
 
+MY_ATTRIBUTE((externally_visible))
 void STDCALL
 mysql_debug(const char *debug MY_ATTRIBUTE((unused)))
 {
@@ -284,6 +288,7 @@ mysql_debug(const char *debug MY_ATTRIBUTE((unused)))
   Change user and database
 **************************************************************************/
 
+MY_ATTRIBUTE((externally_visible))
 my_bool	STDCALL mysql_change_user(MYSQL *mysql, const char *user,
 				  const char *passwd, const char *db)
 {
@@ -629,7 +634,7 @@ default_local_infile_error(void *ptr, char *error_msg, uint error_msg_len)
   return CR_OUT_OF_MEMORY;
 }
 
-
+MY_ATTRIBUTE((externally_visible))
 void
 mysql_set_local_infile_handler(MYSQL *mysql,
                                int (*local_infile_init)(void **, const char *,
@@ -646,7 +651,7 @@ mysql_set_local_infile_handler(MYSQL *mysql,
   mysql->options.local_infile_userdata = userdata;
 }
 
-
+MY_ATTRIBUTE((externally_visible))
 void mysql_set_local_infile_default(MYSQL *mysql)
 {
   mysql->options.local_infile_init=  default_local_infile_init;
@@ -661,6 +666,7 @@ void mysql_set_local_infile_default(MYSQL *mysql)
   Read data by mysql_store_result or by repeat call of mysql_fetch_row
 **************************************************************************/
 
+MY_ATTRIBUTE((externally_visible))
 int STDCALL
 mysql_query(MYSQL *mysql, const char *query)
 {
@@ -672,6 +678,7 @@ mysql_query(MYSQL *mysql, const char *query)
   Return next field of the query results
 **************************************************************************/
 
+MY_ATTRIBUTE((externally_visible))
 MYSQL_FIELD * STDCALL
 mysql_fetch_field(MYSQL_RES *result)
 {
@@ -685,6 +692,7 @@ mysql_fetch_field(MYSQL_RES *result)
   Move to a specific row and column
 **************************************************************************/
 
+MY_ATTRIBUTE((externally_visible))
 void STDCALL
 mysql_data_seek(MYSQL_RES *result, my_ulonglong row)
 {
@@ -703,6 +711,7 @@ mysql_data_seek(MYSQL_RES *result, my_ulonglong row)
   mysql_fetch_field will return the next row or field after the last used
 *************************************************************************/
 
+MY_ATTRIBUTE((externally_visible))
 MYSQL_ROW_OFFSET STDCALL
 mysql_row_seek(MYSQL_RES *result, MYSQL_ROW_OFFSET row)
 {
@@ -713,6 +722,7 @@ mysql_row_seek(MYSQL_RES *result, MYSQL_ROW_OFFSET row)
 }
 
 
+MY_ATTRIBUTE((externally_visible))
 MYSQL_FIELD_OFFSET STDCALL
 mysql_field_seek(MYSQL_RES *result, MYSQL_FIELD_OFFSET field_offset)
 {
@@ -726,6 +736,7 @@ mysql_field_seek(MYSQL_RES *result, MYSQL_FIELD_OFFSET field_offset)
   List all databases
 *****************************************************************************/
 
+MY_ATTRIBUTE((externally_visible))
 MYSQL_RES * STDCALL
 mysql_list_dbs(MYSQL *mysql, const char *wild)
 {
@@ -744,6 +755,7 @@ mysql_list_dbs(MYSQL *mysql, const char *wild)
   If wild is given then only the tables matching wild is returned
 *****************************************************************************/
 
+MY_ATTRIBUTE((externally_visible))
 MYSQL_RES * STDCALL
 mysql_list_tables(MYSQL *mysql, const char *wild)
 {
@@ -785,6 +797,7 @@ MYSQL_FIELD *cli_list_fields(MYSQL *mysql)
   show fields in 'table' like "wild"
 **************************************************************************/
 
+MY_ATTRIBUTE((externally_visible))
 MYSQL_RES * STDCALL
 mysql_list_fields(MYSQL *mysql, const char *table, const char *wild)
 {
@@ -817,6 +830,7 @@ mysql_list_fields(MYSQL *mysql, const char *table, const char *wild)
 
 /* List all running processes (threads) in server */
 
+MY_ATTRIBUTE((externally_visible))
 MYSQL_RES * STDCALL
 mysql_list_processes(MYSQL *mysql)
 {
@@ -837,6 +851,7 @@ mysql_list_processes(MYSQL *mysql)
 }
 
 
+MY_ATTRIBUTE((externally_visible))
 int STDCALL
 mysql_shutdown(MYSQL *mysql, enum mysql_enum_shutdown_level shutdown_level)
 {
@@ -852,6 +867,7 @@ mysql_shutdown(MYSQL *mysql, enum mysql_enum_shutdown_level shutdown_level)
 }
 
 
+MY_ATTRIBUTE((externally_visible))
 int STDCALL
 mysql_refresh(MYSQL *mysql,uint options)
 {
@@ -862,6 +878,7 @@ mysql_refresh(MYSQL *mysql,uint options)
 }
 
 
+MY_ATTRIBUTE((externally_visible))
 int STDCALL
 mysql_kill(MYSQL *mysql,ulong pid)
 {
@@ -882,6 +899,7 @@ mysql_kill(MYSQL *mysql,ulong pid)
 }
 
 
+MY_ATTRIBUTE((externally_visible))
 int STDCALL
 mysql_set_server_option(MYSQL *mysql, enum enum_mysql_set_option option)
 {
@@ -892,6 +910,7 @@ mysql_set_server_option(MYSQL *mysql, enum enum_mysql_set_option option)
 }
 
 
+MY_ATTRIBUTE((externally_visible))
 int STDCALL
 mysql_dump_debug_info(MYSQL *mysql)
 {
@@ -917,6 +936,7 @@ const char *cli_read_statistics(MYSQL *mysql)
 }
 
 
+MY_ATTRIBUTE((externally_visible))
 const char * STDCALL
 mysql_stat(MYSQL *mysql)
 {
@@ -927,6 +947,7 @@ mysql_stat(MYSQL *mysql)
 }
 
 
+MY_ATTRIBUTE((externally_visible))
 int STDCALL
 mysql_ping(MYSQL *mysql)
 {
@@ -939,6 +960,7 @@ mysql_ping(MYSQL *mysql)
 }
 
 
+MY_ATTRIBUTE((externally_visible))
 const char * STDCALL
 mysql_get_server_info(MYSQL *mysql)
 {
@@ -946,6 +968,7 @@ mysql_get_server_info(MYSQL *mysql)
 }
 
 
+MY_ATTRIBUTE((externally_visible))
 const char * STDCALL
 mysql_get_host_info(MYSQL *mysql)
 {
@@ -953,43 +976,51 @@ mysql_get_host_info(MYSQL *mysql)
 }
 
 
+MY_ATTRIBUTE((externally_visible))
 uint STDCALL
 mysql_get_proto_info(MYSQL *mysql)
 {
   return (mysql->protocol_version);
 }
 
+MY_ATTRIBUTE((externally_visible))
 const char * STDCALL
 mysql_get_client_info(void)
 {
   return (char*) MYSQL_SERVER_VERSION;
 }
 
+MY_ATTRIBUTE((externally_visible))
 ulong STDCALL mysql_get_client_version(void)
 {
   return MYSQL_VERSION_ID;
 }
 
+MY_ATTRIBUTE((externally_visible))
 my_bool STDCALL mysql_eof(MYSQL_RES *res)
 {
   return res->eof;
 }
 
+MY_ATTRIBUTE((externally_visible))
 MYSQL_FIELD * STDCALL mysql_fetch_field_direct(MYSQL_RES *res,uint fieldnr)
 {
   return &(res)->fields[fieldnr];
 }
 
+MY_ATTRIBUTE((externally_visible))
 MYSQL_FIELD * STDCALL mysql_fetch_fields(MYSQL_RES *res)
 {
   return (res)->fields;
 }
 
+MY_ATTRIBUTE((externally_visible))
 MYSQL_ROW_OFFSET STDCALL mysql_row_tell(MYSQL_RES *res)
 {
   return res->data_cursor;
 }
 
+MY_ATTRIBUTE((externally_visible))
 MYSQL_FIELD_OFFSET STDCALL mysql_field_tell(MYSQL_RES *res)
 {
   return (res)->current_field;
@@ -997,31 +1028,37 @@ MYSQL_FIELD_OFFSET STDCALL mysql_field_tell(MYSQL_RES *res)
 
 /* MYSQL */
 
+MY_ATTRIBUTE((externally_visible))
 unsigned int STDCALL mysql_field_count(MYSQL *mysql)
 {
   return mysql->field_count;
 }
 
+MY_ATTRIBUTE((externally_visible))
 my_ulonglong STDCALL mysql_affected_rows(MYSQL *mysql)
 {
   return mysql->affected_rows;
 }
 
+MY_ATTRIBUTE((externally_visible))
 my_ulonglong STDCALL mysql_insert_id(MYSQL *mysql)
 {
   return mysql->insert_id;
 }
 
+MY_ATTRIBUTE((externally_visible))
 const char *STDCALL mysql_sqlstate(MYSQL *mysql)
 {
   return mysql ? mysql->net.sqlstate : cant_connect_sqlstate;
 }
 
+MY_ATTRIBUTE((externally_visible))
 uint STDCALL mysql_warning_count(MYSQL *mysql)
 {
   return mysql->warning_count;
 }
 
+MY_ATTRIBUTE((externally_visible))
 const char *STDCALL mysql_info(MYSQL *mysql)
 {
   if (!mysql)
@@ -1035,6 +1072,7 @@ const char *STDCALL mysql_info(MYSQL *mysql)
   return mysql->info;
 }
 
+MY_ATTRIBUTE((externally_visible))
 ulong STDCALL mysql_thread_id(MYSQL *mysql)
 {
   /*
@@ -1046,11 +1084,13 @@ ulong STDCALL mysql_thread_id(MYSQL *mysql)
   return (mysql)->thread_id;
 }
 
+MY_ATTRIBUTE((externally_visible))
 const char * STDCALL mysql_character_set_name(MYSQL *mysql)
 {
   return mysql->charset->csname;
 }
 
+MY_ATTRIBUTE((externally_visible))
 void STDCALL mysql_get_character_set_info(MYSQL *mysql, MY_CHARSET_INFO *csinfo)
 {
   csinfo->number   = mysql->charset->number;
@@ -1067,6 +1107,7 @@ void STDCALL mysql_get_character_set_info(MYSQL *mysql, MY_CHARSET_INFO *csinfo)
     csinfo->dir = charsets_dir;
 }
 
+MY_ATTRIBUTE((externally_visible))
 uint STDCALL mysql_thread_safe(void)
 {
   return 1;
@@ -1127,6 +1168,7 @@ void my_net_local_init(NET *net)
   trailing '. The caller must supply whichever of those is desired.
 */
 
+MY_ATTRIBUTE((externally_visible))
 ulong STDCALL
 mysql_hex_string(char *to, const char *from, ulong length)
 {
@@ -1148,6 +1190,7 @@ mysql_hex_string(char *to, const char *from, ulong length)
   Returns the length of the to string
 */
 
+MY_ATTRIBUTE((externally_visible))
 ulong STDCALL
 mysql_escape_string(char *to,const char *from,ulong length)
 {
@@ -1181,6 +1224,7 @@ mysql_escape_string(char *to,const char *from,ulong length)
     @retval (ulong)-1    Failed. Use mysql_error() to get error message.
 */
 
+MY_ATTRIBUTE((externally_visible))
 ulong STDCALL
 mysql_real_escape_string(MYSQL *mysql, char *to,const char *from,
                          ulong length)
@@ -1224,6 +1268,7 @@ mysql_real_escape_string(MYSQL *mysql, char *to,const char *from,
     @retval (ulong)-1    Failed.
 */
 
+MY_ATTRIBUTE((externally_visible))
 ulong STDCALL
 mysql_real_escape_string_quote(MYSQL *mysql, char *to, const char *from,
                                ulong length, char quote)
@@ -1542,6 +1587,7 @@ my_bool cli_read_prepare_result(MYSQL *mysql, MYSQL_STMT *stmt)
     memory
 */
 
+MY_ATTRIBUTE((externally_visible))
 MYSQL_STMT * STDCALL
 mysql_stmt_init(MYSQL *mysql)
 {
@@ -1614,6 +1660,7 @@ mysql_stmt_init(MYSQL *mysql)
    !0  error
 */
 
+MY_ATTRIBUTE((externally_visible))
 int STDCALL
 mysql_stmt_prepare(MYSQL_STMT *stmt, const char *query, ulong length)
 {
@@ -1847,6 +1894,7 @@ static void update_stmt_fields(MYSQL_STMT *stmt)
     MYSQL_RES  a result set with no rows
 */
 
+MY_ATTRIBUTE((externally_visible))
 MYSQL_RES * STDCALL
 mysql_stmt_result_metadata(MYSQL_STMT *stmt)
 {
@@ -1895,6 +1943,7 @@ mysql_stmt_result_metadata(MYSQL_STMT *stmt)
     Currently this function always returns 0.
 */
 
+MY_ATTRIBUTE((externally_visible))
 MYSQL_RES * STDCALL
 mysql_stmt_param_metadata(MYSQL_STMT *stmt)
 {
@@ -2470,6 +2519,7 @@ stmt_read_row_no_result_set(MYSQL_STMT *stmt  MY_ATTRIBUTE((unused)),
    !0 wrong attribute type
 */
 
+MY_ATTRIBUTE((externally_visible))
 my_bool STDCALL mysql_stmt_attr_set(MYSQL_STMT *stmt,
                                     enum enum_stmt_attr_type attr_type,
                                     const void *value)
@@ -2505,6 +2555,7 @@ err_not_implemented:
 }
 
 
+MY_ATTRIBUTE((externally_visible))
 my_bool STDCALL mysql_stmt_attr_get(MYSQL_STMT *stmt,
                                     enum enum_stmt_attr_type attr_type,
                                     void *value)
@@ -2644,6 +2695,7 @@ static void prepare_to_fetch_result(MYSQL_STMT *stmt)
     1   error, message can be retrieved with mysql_stmt_error().
 */
 
+MY_ATTRIBUTE((externally_visible))
 int STDCALL mysql_stmt_execute(MYSQL_STMT *stmt)
 {
   MYSQL *mysql= stmt->mysql;
@@ -2677,6 +2729,7 @@ int STDCALL mysql_stmt_execute(MYSQL_STMT *stmt)
   Return total parameters count in the statement
 */
 
+MY_ATTRIBUTE((externally_visible))
 ulong STDCALL mysql_stmt_param_count(MYSQL_STMT * stmt)
 {
   DBUG_ENTER("mysql_stmt_param_count");
@@ -2687,6 +2740,7 @@ ulong STDCALL mysql_stmt_param_count(MYSQL_STMT * stmt)
   Return total affected rows from the last statement
 */
 
+MY_ATTRIBUTE((externally_visible))
 my_ulonglong STDCALL mysql_stmt_affected_rows(MYSQL_STMT *stmt)
 {
   return stmt->affected_rows;
@@ -2698,6 +2752,7 @@ my_ulonglong STDCALL mysql_stmt_affected_rows(MYSQL_STMT *stmt)
   run on this statement.
 */
 
+MY_ATTRIBUTE((externally_visible))
 unsigned int STDCALL mysql_stmt_field_count(MYSQL_STMT *stmt)
 {
   return stmt->field_count;
@@ -2719,6 +2774,7 @@ unsigned int STDCALL mysql_stmt_field_count(MYSQL_STMT *stmt)
     connection structure during some other call.
 */
 
+MY_ATTRIBUTE((externally_visible))
 my_ulonglong STDCALL mysql_stmt_insert_id(MYSQL_STMT *stmt)
 {
   return stmt->insert_id;
@@ -2898,6 +2954,7 @@ static my_bool int_is_null_false= 0;
     1  error, can be retrieved with mysql_stmt_error.
 */
 
+MY_ATTRIBUTE((externally_visible))
 my_bool STDCALL mysql_stmt_bind_param(MYSQL_STMT *stmt, MYSQL_BIND *my_bind)
 {
   uint count=0;
@@ -3058,6 +3115,7 @@ my_bool STDCALL mysql_stmt_bind_param(MYSQL_STMT *stmt, MYSQL_BIND *my_bind)
     1	error
 */
 
+MY_ATTRIBUTE((externally_visible))
 my_bool STDCALL
 mysql_stmt_send_long_data(MYSQL_STMT *stmt, uint param_number,
 		     const char *data, ulong length)
@@ -4163,6 +4221,7 @@ static my_bool setup_one_fetch_function(MYSQL_BIND *param, MYSQL_FIELD *field)
   Setup the bind buffers for resultset processing
 */
 
+MY_ATTRIBUTE((externally_visible))
 my_bool STDCALL mysql_stmt_bind_result(MYSQL_STMT *stmt, MYSQL_BIND *my_bind)
 {
   MYSQL_BIND *param, *end;
@@ -4327,6 +4386,7 @@ int cli_unbuffered_fetch(MYSQL *mysql, char **row)
   Fetch and return row data to bound buffers, if any
 */
 
+MY_ATTRIBUTE((externally_visible))
 int STDCALL mysql_stmt_fetch(MYSQL_STMT *stmt)
 {
   int rc;
@@ -4365,6 +4425,7 @@ int STDCALL mysql_stmt_fetch(MYSQL_STMT *stmt)
     1	error
 */
 
+MY_ATTRIBUTE((externally_visible))
 int STDCALL mysql_stmt_fetch_column(MYSQL_STMT *stmt, MYSQL_BIND *my_bind,
                                     uint column, ulong offset)
 {
@@ -4542,6 +4603,7 @@ static void stmt_update_metadata(MYSQL_STMT *stmt, MYSQL_ROWS *data)
   Store or buffer the binary results to stmt
 */
 
+MY_ATTRIBUTE((externally_visible))
 int STDCALL mysql_stmt_store_result(MYSQL_STMT *stmt)
 {
   MYSQL *mysql= stmt->mysql;
@@ -4658,6 +4720,7 @@ int STDCALL mysql_stmt_store_result(MYSQL_STMT *stmt)
   Seek to desired row in the statement result set
 */
 
+MY_ATTRIBUTE((externally_visible))
 MYSQL_ROW_OFFSET STDCALL
 mysql_stmt_row_seek(MYSQL_STMT *stmt, MYSQL_ROW_OFFSET row)
 {
@@ -4673,6 +4736,7 @@ mysql_stmt_row_seek(MYSQL_STMT *stmt, MYSQL_ROW_OFFSET row)
   Return the current statement row cursor position
 */
 
+MY_ATTRIBUTE((externally_visible))
 MYSQL_ROW_OFFSET STDCALL
 mysql_stmt_row_tell(MYSQL_STMT *stmt)
 {
@@ -4686,6 +4750,7 @@ mysql_stmt_row_tell(MYSQL_STMT *stmt)
   Move the stmt result set data cursor to specified row
 */
 
+MY_ATTRIBUTE((externally_visible))
 void STDCALL
 mysql_stmt_data_seek(MYSQL_STMT *stmt, my_ulonglong row)
 {
@@ -4710,6 +4775,7 @@ mysql_stmt_data_seek(MYSQL_STMT *stmt, my_ulonglong row)
   Return total rows the current statement result set
 */
 
+MY_ATTRIBUTE((externally_visible))
 my_ulonglong STDCALL mysql_stmt_num_rows(MYSQL_STMT *stmt)
 {
   DBUG_ENTER("mysql_stmt_num_rows");
@@ -4791,6 +4857,7 @@ static my_bool reset_stmt_handle(MYSQL_STMT *stmt, uint flags)
   return 0;
 }
 
+MY_ATTRIBUTE((externally_visible))
 my_bool STDCALL mysql_stmt_free_result(MYSQL_STMT *stmt)
 {
   DBUG_ENTER("mysql_stmt_free_result");
@@ -4816,6 +4883,7 @@ my_bool STDCALL mysql_stmt_free_result(MYSQL_STMT *stmt)
     1	error
 */
 
+MY_ATTRIBUTE((externally_visible))
 my_bool STDCALL mysql_stmt_close(MYSQL_STMT *stmt)
 {
   MYSQL *mysql= stmt->mysql;
@@ -4869,6 +4937,7 @@ my_bool STDCALL mysql_stmt_close(MYSQL_STMT *stmt)
   Reset the statement buffers in server
 */
 
+MY_ATTRIBUTE((externally_visible))
 my_bool STDCALL mysql_stmt_reset(MYSQL_STMT *stmt)
 {
   DBUG_ENTER("mysql_stmt_reset");
@@ -4889,12 +4958,14 @@ my_bool STDCALL mysql_stmt_reset(MYSQL_STMT *stmt)
   Return statement error code
 */
 
+MY_ATTRIBUTE((externally_visible))
 uint STDCALL mysql_stmt_errno(MYSQL_STMT * stmt)
 {
   DBUG_ENTER("mysql_stmt_errno");
   DBUG_RETURN(stmt->last_errno);
 }
 
+MY_ATTRIBUTE((externally_visible))
 const char *STDCALL mysql_stmt_sqlstate(MYSQL_STMT * stmt)
 {
   DBUG_ENTER("mysql_stmt_sqlstate");
@@ -4905,6 +4976,7 @@ const char *STDCALL mysql_stmt_sqlstate(MYSQL_STMT * stmt)
   Return statement error message
 */
 
+MY_ATTRIBUTE((externally_visible))
 const char *STDCALL mysql_stmt_error(MYSQL_STMT * stmt)
 {
   DBUG_ENTER("mysql_stmt_error");
@@ -4920,6 +4992,7 @@ const char *STDCALL mysql_stmt_error(MYSQL_STMT * stmt)
   Commit the current transaction
 */
 
+MY_ATTRIBUTE((externally_visible))
 my_bool STDCALL mysql_commit(MYSQL * mysql)
 {
   DBUG_ENTER("mysql_commit");
@@ -4930,6 +5003,7 @@ my_bool STDCALL mysql_commit(MYSQL * mysql)
   Rollback the current transaction
 */
 
+MY_ATTRIBUTE((externally_visible))
 my_bool STDCALL mysql_rollback(MYSQL * mysql)
 {
   DBUG_ENTER("mysql_rollback");
@@ -4941,6 +5015,7 @@ my_bool STDCALL mysql_rollback(MYSQL * mysql)
   Set autocommit to either true or false
 */
 
+MY_ATTRIBUTE((externally_visible))
 my_bool STDCALL mysql_autocommit(MYSQL * mysql, my_bool auto_mode)
 {
   DBUG_ENTER("mysql_autocommit");
@@ -4961,6 +5036,7 @@ my_bool STDCALL mysql_autocommit(MYSQL * mysql, my_bool auto_mode)
   to be read using mysql_next_result()
 */
 
+MY_ATTRIBUTE((externally_visible))
 my_bool STDCALL mysql_more_results(MYSQL *mysql)
 {
   my_bool res;
@@ -4975,6 +5051,7 @@ my_bool STDCALL mysql_more_results(MYSQL *mysql)
 /*
   Reads and returns the next query results
 */
+MY_ATTRIBUTE((externally_visible))
 int STDCALL mysql_next_result(MYSQL *mysql)
 {
   DBUG_ENTER("mysql_next_result");
@@ -5001,6 +5078,7 @@ int STDCALL mysql_next_result(MYSQL *mysql)
 }
 
 
+MY_ATTRIBUTE((externally_visible))
 int STDCALL mysql_stmt_next_result(MYSQL_STMT *stmt)
 {
   MYSQL *mysql= stmt->mysql;
@@ -5044,16 +5122,19 @@ int STDCALL mysql_stmt_next_result(MYSQL_STMT *stmt)
 }
 
 
+MY_ATTRIBUTE((externally_visible))
 MYSQL_RES * STDCALL mysql_use_result(MYSQL *mysql)
 {
   return (*mysql->methods->use_result)(mysql);
 }
 
+MY_ATTRIBUTE((externally_visible))
 my_bool STDCALL mysql_read_query_result(MYSQL *mysql)
 {
   return (*mysql->methods->read_query_result)(mysql);
 }
 
+MY_ATTRIBUTE((externally_visible))
 int STDCALL
 mysql_reset_connection(MYSQL *mysql)
 {

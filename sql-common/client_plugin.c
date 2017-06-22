@@ -391,6 +391,7 @@ void mysql_client_plugin_deinit()
 /************* public facing functions, for client consumption *********/
 
 /* see <mysql/client_plugin.h> for a full description */
+MY_ATTRIBUTE((externally_visible))
 struct st_mysql_client_plugin *
 mysql_client_register_plugin(MYSQL *mysql,
                              struct st_mysql_client_plugin *plugin)
@@ -416,6 +417,7 @@ mysql_client_register_plugin(MYSQL *mysql,
 }
 
 /* see <mysql/client_plugin.h> for a full description */
+MY_ATTRIBUTE((externally_visible))
 struct st_mysql_client_plugin *
 mysql_load_plugin_v(MYSQL *mysql, const char *name, int type,
                     int argc, va_list args)
@@ -537,6 +539,7 @@ err:
 }
 
 /* see <mysql/client_plugin.h> for a full description */
+MY_ATTRIBUTE((externally_visible))
 struct st_mysql_client_plugin *
 mysql_load_plugin(MYSQL *mysql, const char *name, int type, int argc, ...)
 {
@@ -549,6 +552,7 @@ mysql_load_plugin(MYSQL *mysql, const char *name, int type, int argc, ...)
 }
 
 /* see <mysql/client_plugin.h> for a full description */
+MY_ATTRIBUTE((externally_visible))
 struct st_mysql_client_plugin *
 mysql_client_find_plugin(MYSQL *mysql, const char *name, int type)
 {
@@ -580,6 +584,7 @@ mysql_client_find_plugin(MYSQL *mysql, const char *name, int type)
 
 
 /* see <mysql/client_plugin.h> for a full description */
+MY_ATTRIBUTE((externally_visible))
 int mysql_plugin_options(struct st_mysql_client_plugin *plugin,
                                  const char *option,
                                  const void *value)
