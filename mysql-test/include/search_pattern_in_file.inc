@@ -56,6 +56,9 @@
 perl;
     use strict;
     my $search_file=           $ENV{'SEARCH_FILE'}           or die "SEARCH_FILE not set";
+    if ($search_file =~ /.*\/mysqld\.[0-9]\.err/) {
+      die "Grepping default server log output is forbidden due to previous test output";
+    }
     my $search_pattern=        $ENV{'SEARCH_PATTERN'}        or die "SEARCH_PATTERN not set";
     open(FILE, "$search_file") or die("Unable to open '$search_file': $!\n");
     read(FILE, my $file_content, 50000, 0);

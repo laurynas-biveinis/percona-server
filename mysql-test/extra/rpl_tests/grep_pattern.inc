@@ -3,6 +3,9 @@
 --perl
   use strict;
   my $file= $ENV{'GREP_FILE'} or die "grep file not set";
+  if ($file =~ /.*\/mysqld\.[0-9]\.err/) {
+    die "Grepping default server log output is forbidden due to previous test output";
+  }
   my $pattern= $ENV{'GREP_PATTERN'} or die "pattern is not set";
   open(FILE, "$file") or die("Unable to open $file: $!\n");
   my $count = 0;

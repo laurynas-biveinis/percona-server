@@ -86,6 +86,20 @@ if (!$tmp) {
   SHOW SLAVE STATUS;
 }
 
+--write_file $MYSQL_TMP_DIR/list
+$MYSQL_TMP_DIR:
+EOF
+--list_files_append_file $MYSQL_TMP_DIR/list $MYSQL_TMP_DIR
+--append_file $MYSQL_TMP_DIR/list
+$MYSQLTEST_VARDIR:
+EOF
+--list_files_append_file $MYSQL_TMP_DIR/list $MYSQLTEST_VARDIR
+--let $input_file= $MYSQL_TMP_DIR/list
+--let $script= s{check-mysqld_.\.result}{};
+--source include/filter_file.inc
+--cat_file $MYSQL_TMP_DIR/list
+--remove_file $MYSQL_TMP_DIR/list
+
 call mtr.check_testcase();
 --enable_query_log
 

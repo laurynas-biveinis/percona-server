@@ -551,6 +551,9 @@ sub main {
 
   mtr_report_stats("Completed", $completed);
 
+  # TODO mac only!
+  system("chflags -f -R nouappnd $opt_vardir/*");
+
   remove_vardir_subs() if $opt_clean_vardir;
 
   exit(0);
@@ -3784,6 +3787,8 @@ sub mark_log {
   my ($log, $tinfo)= @_;
   my $log_msg= "CURRENT_TEST: $tinfo->{name}\n";
   mtr_tofile($log, $log_msg);
+  # TODO: mac only!
+  system("chflags uappnd $log");
 }
 
 
@@ -4205,6 +4210,7 @@ sub run_testcase ($) {
 	  resfile_output_file($path_current_testlog);
 	}
 	mtr_appendfile_to_file($path_current_testlog, $path_testlog);
+        system("chflags nouappnd $path_current_testlog");
 	unlink($path_current_testlog);
       }
 

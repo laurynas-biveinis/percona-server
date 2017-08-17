@@ -24,6 +24,7 @@ echo ok;
 --echo # ------------------------------------
 --cat_file $MYSQL_TMP_DIR/test_wl4435.out.log
 --echo # ------------------------------------
+--remove_file $MYSQL_TMP_DIR/test_wl4435.out.log
 --echo
 
 SET @@global.general_log= @old_general_log;

@@ -45,6 +45,8 @@ use My::Platform;
 
 sub rmtree {
   my ($dir)= @_;
+  # TODO: mac only!
+  system("chflags -v -R nouappnd $dir");
   find( {
 	 bydepth 		=> 1,
 	 no_chdir 		=> 1,

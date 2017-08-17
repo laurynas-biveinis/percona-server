@@ -936,7 +936,6 @@ static void test_wl4435_2()
   char query[MAX_TEST_QUERY_LENGTH];
 
   myheader("test_wl4435_2");
-  mct_start_logging("test_wl4435_2");
 
   /*
     Do a few iterations so that we catch any problem with incorrect
@@ -985,7 +984,6 @@ static void test_wl4435_2()
     rc= mysql_query(mysql, "DROP PROCEDURE p1");
     myquery(rc);
   }
-  mct_close_log();
 }
 
 

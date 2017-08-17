@@ -11,6 +11,9 @@ perl;
 
   $log_file=           $ENV{'log_file'};
   $log_file_full_path= $ENV{'log_file_full_path'};
+  if ($log_file_full_path =~ /.*\/mysqld\.[0-9]\.err/) {
+    die "Grepping default server log output is forbidden due to previous test output";
+  }
   $log_slow_rate_test= $ENV{'log_slow_rate_test'};
   open(FILE, "$log_file_full_path") 
     or die("Cannot open file $log_file_full_path: $!\n");
