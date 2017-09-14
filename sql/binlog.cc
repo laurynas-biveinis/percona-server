@@ -8164,7 +8164,11 @@ void MYSQL_BIN_LOG::close(uint exiting, bool need_lock_log,
     {
       end_io_cache(&log_file);
 
-      if (mysql_file_sync(log_file.file, MYF(MY_WME)) && ! write_error)
+      if (sync_binlog_period == 4294967295)
+      {
+        sql_print_information("sync_binlog == 4294967295, skipping sync before close");
+      }
+      else if (mysql_file_sync(log_file.file, MYF(MY_WME)) && ! write_error)
       {
         char errbuf[MYSYS_STRERROR_SIZE];
         write_error= 1;
