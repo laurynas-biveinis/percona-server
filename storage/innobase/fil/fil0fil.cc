@@ -2999,15 +2999,17 @@ fil_prepare_for_truncate(
 
 /** Reinitialize the original tablespace header with the same space id
 for single tablespace
-@param[in]      id              space id of the tablespace
+@param[in]      table		table belongs to tablespace
 @param[in]      size            size in blocks
 @param[in]      trx             Transaction covering truncate */
 void
-fil_reinit_space_header(
-	ulint		id,
+fil_reinit_space_header_for_table(
+	dict_table_t*	table,
 	ulint		size,
 	trx_t*		trx)
 {
+	ulint	id = table->space;
+
 	ut_a(!is_system_tablespace(id));
 
 	/* Invalidate in the buffer pool all pages belonging
@@ -3016,6 +3018,9 @@ fil_reinit_space_header(
 	and the dict operation lock during the scan and aquire
 	it again after the buffer pool scan.*/
 
+	/* Release the lock on the indexes too. So that
+	they won't violate the latch ordering. */
+	dict_table_x_unlock_indexes(table);
 	row_mysql_unlock_data_dictionary(trx);
 
 	/* Lock the search latch in shared mode to prevent user
@@ -3024,7 +3029,10 @@ fil_reinit_space_header(
 	DEBUG_SYNC_C("simulate_buffer_pool_scan");
 	buf_LRU_flush_or_remove_pages(id, BUF_REMOVE_ALL_NO_WRITE, 0);
 	btr_search_s_unlock_all();
+
 	row_mysql_lock_data_dictionary(trx);
+
+	dict_table_x_lock_indexes(table);
 
 	/* Remove all insert buffer entries for the tablespace */
 	ibuf_delete_for_discarded_space(id);
@@ -4963,7 +4971,7 @@ fil_write_zeros(
 		err = os_aio_func(
 			request, OS_AIO_SYNC, node->name,
 			node->handle, buf, offset, n_bytes, read_only_mode,
-			NULL, NULL, node->space->id, NULL);
+			NULL, NULL, node->space->id, NULL, false);
 #endif /* UNIV_HOTBACKUP */
 
 		if (err != DB_SUCCESS) {
@@ -5492,6 +5500,12 @@ fil_io_set_encryption(
 			aligned
 @param[in] message	message for aio handler if non-sync aio
 			used, else ignored
+@param[in] should_buffer
+			whether to buffer an aio request.
+			AIO read ahead uses this. If you plan to
+			use this parameter, make sure you remember
+			to call os_aio_dispatch_read_array_submit()
+			when you're ready to commit all your requests.
 
 @return DB_SUCCESS, DB_TABLESPACE_DELETED or DB_TABLESPACE_TRUNCATED
 	if we are trying to do i/o on a tablespace which does not exist */
@@ -5505,7 +5519,8 @@ _fil_io(
 	ulint			len,
 	void*			buf,
 	void*			message,
-	trx_t*			trx)
+	trx_t*			trx,
+	bool			should_buffer)
 {
 	os_offset_t		offset;
 	IORequest		req_type(type);
@@ -5821,7 +5836,7 @@ _fil_io(
 		mode, node->name, node->handle, buf, offset, len,
 		fsp_is_system_temporary(page_id.space())
 		? false : srv_read_only_mode,
-		node, message, page_id.space(), trx);
+		node, message, page_id.space(), trx, should_buffer);
 
 #endif /* UNIV_HOTBACKUP */
 

@@ -126,7 +126,17 @@ any of the rollback-segment based on configuration used. */
 ulint	srv_undo_tablespaces_active = 0;
 
 /* The number of rollback segments to use */
-ulong	srv_undo_logs = 1;
+ulong	srv_rollback_segments = 1;
+
+/* Used for the deprecated setting innodb_undo_logs. This will still get
+put into srv_rollback_segments if it is set to a non-default value. */
+ulong	srv_undo_logs = 0;
+const char* deprecated_undo_logs =
+	"The parameter innodb_undo_logs is deprecated"
+	" and may be removed in future releases."
+	" Please use innodb_rollback_segments instead."
+	" See " REFMAN "innodb-undo-logs.html";
+
 
 /** Rate at which UNDO records should be purged. */
 ulong	srv_purge_rseg_truncate_frequency = 128;
@@ -1787,6 +1797,9 @@ srv_export_innodb_status(void)
 		srv_sec_rec_cluster_reads;
 	export_vars.innodb_sec_rec_cluster_reads_avoided =
 		srv_sec_rec_cluster_reads_avoided;
+
+	export_vars.innodb_buffered_aio_submitted =
+		srv_stats.n_aio_submitted;
 
 	mutex_exit(&srv_innodb_monitor_mutex);
 }

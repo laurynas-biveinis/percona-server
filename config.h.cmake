@@ -274,8 +274,7 @@
 #cmakedefine HAVE_NCURSES_H 1
 #cmakedefine USE_LIBEDIT_INTERFACE 1
 #cmakedefine HAVE_HIST_ENTRY 1
-#cmakedefine USE_NEW_EDITLINE_INTERFACE 1
-#cmakedefine USE_NEW_READLINE_INTERFACE 1
+#cmakedefine USE_NEW_XLINE_INTERFACE 1
 #cmakedefine HAVE_READLINE_HISTORY_H 1
 
 /*
@@ -334,6 +333,8 @@
 #cmakedefine HAVE_CHARSET_utf16 1
 #cmakedefine HAVE_CHARSET_utf32 1
 #cmakedefine HAVE_UCA_COLLATIONS 1
+#cmakedefine HAVE_X509_CHECK_HOST 1
+#cmakedefine HAVE_X509_CHECK_IP 1
 
 /*
  * Feature set

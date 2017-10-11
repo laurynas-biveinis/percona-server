@@ -28,6 +28,8 @@ struct Key : IKey
   Key(const char *a_key_id, const char *a_key_type, const char *a_user_id,
       const void *a_key, size_t a_key_len);
   Key();
+  Key(const Key& other);
+  Key(IKey *other);
 
   ~Key();
 
@@ -36,6 +38,8 @@ struct Key : IKey
   void store_in_buffer(uchar* buffer, size_t *buffer_position) const;
   std::string* get_key_signature() const;
   std::string* get_key_type();
+  std::string* get_key_id();
+  std::string* get_user_id();
   uchar* get_key_data();
   size_t get_key_data_size();
   size_t get_key_pod_size() const;
@@ -46,10 +50,15 @@ struct Key : IKey
   my_bool is_key_type_valid();
   my_bool is_key_id_valid();
   my_bool is_key_valid();
+  my_bool is_key_length_valid();
 
 private:
-  Key(const Key& other);
-  void create_key_signature() const;
+  void init(const char *a_key_id, const char *a_key_type, const char *a_user_id,
+            const void *a_key, size_t a_key_len);
+
+  void clear_key_data();
+
+  virtual void create_key_signature() const;
   my_bool load_string_from_buffer(const uchar *buffer, size_t *buffer_position,
                                   size_t key_pod_size, std::string *string,
                                   size_t string_length);

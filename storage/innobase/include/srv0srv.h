@@ -137,6 +137,9 @@ struct srv_stats_t {
 	ulint_ctr_64_t		n_rows_inserted;
 
 	ulint_ctr_1_t		n_lock_max_wait_time;
+
+	/** Number of buffered aio requests submitted */
+	ulint_ctr_64_t		n_aio_submitted;
 };
 
 extern const char*	srv_main_thread_op_info;
@@ -269,7 +272,12 @@ any of the rollback-segment based on configuration used. */
 extern ulint	srv_undo_tablespaces_active;
 
 /** The number of undo segments to use */
+extern ulong	srv_rollback_segments;
+
+/* Used for the deprecated setting innodb_undo_logs. This will get put into
+srv_rollback_segments if it is set to non=default */
 extern ulong	srv_undo_logs;
+extern const char* deprecated_undo_logs;
 
 /** Maximum size of undo tablespace. */
 extern unsigned long long	srv_max_undo_log_size;
@@ -1090,6 +1098,8 @@ struct export_var_t{
 #endif /* UNIV_DEBUG */
 	ulint innodb_sec_rec_cluster_reads;	/*!< srv_sec_rec_cluster_reads */
 	ulint innodb_sec_rec_cluster_reads_avoided; /*!< srv_sec_rec_cluster_reads_avoided */
+
+	ulint innodb_buffered_aio_submitted;
 };
 
 /** Thread slot in the thread table.  */

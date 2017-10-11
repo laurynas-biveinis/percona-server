@@ -1,6 +1,6 @@
 /*****************************************************************************
 
-Copyright (c) 1995, 2016, Oracle and/or its affiliates. All Rights Reserved.
+Copyright (c) 1995, 2017, Oracle and/or its affiliates. All Rights Reserved.
 
 This program is free software; you can redistribute it and/or modify it under
 the terms of the GNU General Public License as published by the Free Software
@@ -278,9 +278,8 @@ fsp_flags_is_valid(
 		return(false);
 	}
 
-	/* Only single-table and not temp tablespaces use the encryption
-	clause. */
-	if (is_encryption && (is_shared || is_temp)) {
+	/* Temporary tablespaces do not use the encryption clause. */
+	if (is_encryption && is_temp) {
 		return(false);
 	}
 
@@ -1286,6 +1285,7 @@ fsp_header_decode_encryption_info(
 	if (crc1 != crc2) {
 		ib::error() << "Failed to decrpt encryption information,"
 			<< " please check key file is not changed!";
+		my_free(master_key);
 		return(false);
 	}
 

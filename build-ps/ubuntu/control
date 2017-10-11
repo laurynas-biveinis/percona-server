@@ -23,6 +23,7 @@ Build-Depends: bison,
                gcc (>= 4.4),
                g++ (>= 4.4),
                libwrap0-dev,
+               libldap2-dev,
                dh-systemd
 Standards-Version: 3.9.4
 Homepage: http://www.percona.com/software/percona-server/
@@ -43,6 +44,17 @@ Description: TokuDB engine plugin for Percona Server
  schema modifications, and reduces slave lag for both hard disk drives and flash memory.
  .
  This package includes the TokuDB plugin library.
+
+Package: percona-server-rocksdb-5.7
+Section: database
+Architecture: any
+Depends: percona-server-server-5.7 (= ${binary:Version}), ${misc:Depends}
+Description: MyRocks storage engine plugin for Percona Server
+ .
+ MyRocks is a storage engine for Percona Server which incorporates RocksDB
+ library optimized for fast storage and space efficiency.
+ .
+ This package includes the MyRocks/RocksDB plugin library.
 
 Package: libperconaserverclient20
 Architecture: any
@@ -96,7 +108,7 @@ Description: Percona Server database development files
 Package: percona-server-common-5.7
 Section: database
 Architecture: any
-Pre-depends: debconf (>= 0.2.17), mysql-common, ${misc:Pre-Depends}
+Pre-depends: debconf (>= 0.2.17), mysql-common, debsums, ${misc:Pre-Depends}
 Multi-Arch: foreign
 Depends: ${shlibs:Depends}, ${misc:Depends}
 Description: Percona Server database common files (e.g. /etc/mysql/my.cnf)

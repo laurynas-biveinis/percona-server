@@ -216,6 +216,12 @@ IF(CMAKE_COMPILER_IS_GNUCXX OR CMAKE_CXX_COMPILER_ID MATCHES "Clang")
   STRING(REGEX REPLACE "-std=c..[0-9]+" "" CXXFLAGS "${CXXFLAGS}")
 ENDIF()
 
+IF(CMAKE_SYSTEM_NAME MATCHES "FreeBSD")
+  SET (PERL_PATH "/usr/local/bin/perl")
+ELSE()
+  SET (PERL_PATH "/usr/bin/perl")
+ENDIF()
+
 IF(UNIX)
   # SHELL_PATH, FIND_PROC, CHECK_PID are used by mysqld_safe
 IF(CMAKE_SYSTEM_NAME MATCHES "SunOS")
@@ -416,6 +422,8 @@ ELSE()
       mysql_config
       mysqldumpslow
       ps_tokudb_admin
+      ps_mysqld_helper
+      ps-admin
       )
   ELSE()
     SET(BIN_SCRIPTS
@@ -424,6 +432,8 @@ ELSE()
       mysqld_multi
       mysqld_safe
       ps_tokudb_admin
+      ps_mysqld_helper
+      ps-admin
       )
   ENDIF()
 

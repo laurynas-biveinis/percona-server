@@ -15,6 +15,8 @@
    Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA */
 
 /* C++ standard header files */
+#include <algorithm>
+#include <cctype>
 #include <map>
 #include <string>
 #include <vector>
@@ -71,7 +73,11 @@ static int rdb_i_s_cfstats_fill_table(my_core::THD *const thd,
                                       MY_ATTRIBUTE((__unused__))) {
   DBUG_ENTER_FUNC();
 
-  bool ret;
+  DBUG_ASSERT(tables != nullptr);
+  DBUG_ASSERT(tables->table != nullptr);
+  DBUG_ASSERT(tables->table->field != nullptr);
+
+  int ret = 0;
   uint64_t val;
 
   const std::vector<std::pair<const std::string, std::string>> cf_properties = {
@@ -93,26 +99,24 @@ static int rdb_i_s_cfstats_fill_table(my_core::THD *const thd,
       {rocksdb::DB::Properties::kNumLiveVersions, "NUM_LIVE_VERSIONS"}};
 
   rocksdb::DB *const rdb = rdb_get_rocksdb_db();
+
+  if (!rdb) {
+    DBUG_RETURN(ret);
+  }
+
   const Rdb_cf_manager &cf_manager = rdb_get_cf_manager();
-  DBUG_ASSERT(rdb != nullptr);
 
   for (const auto &cf_name : cf_manager.get_cf_names()) {
-    rocksdb::ColumnFamilyHandle *cfh;
-    bool is_automatic;
-
-    /*
-      Only the cf name is important. Whether it was generated automatically
-      does not matter, so is_automatic is ignored.
-    */
-    cfh = cf_manager.get_cf(cf_name.c_str(), "", nullptr, &is_automatic);
-    if (cfh == nullptr)
+    DBUG_ASSERT(!cf_name.empty());
+    rocksdb::ColumnFamilyHandle *cfh = cf_manager.get_cf(cf_name);
+    if (cfh == nullptr) {
       continue;
+    }
 
     for (const auto &property : cf_properties) {
-      if (!rdb->GetIntProperty(cfh, property.first, &val))
+      if (!rdb->GetIntProperty(cfh, property.first, &val)) {
         continue;
-
-      DBUG_ASSERT(tables != nullptr);
+      }
 
       tables->table->field[RDB_CFSTATS_FIELD::CF_NAME]->store(
           cf_name.c_str(), cf_name.size(), system_charset_info);
@@ -120,12 +124,15 @@ static int rdb_i_s_cfstats_fill_table(my_core::THD *const thd,
           property.second.c_str(), property.second.size(), system_charset_info);
       tables->table->field[RDB_CFSTATS_FIELD::VALUE]->store(val, true);
 
-      ret = my_core::schema_table_store_record(thd, tables->table);
+      ret = static_cast<int>(
+          my_core::schema_table_store_record(thd, tables->table));
 
-      if (ret)
+      if (ret) {
         DBUG_RETURN(ret);
+      }
     }
   }
+
   DBUG_RETURN(0);
 }
 
@@ -162,7 +169,11 @@ static int rdb_i_s_dbstats_fill_table(my_core::THD *const thd,
                                       MY_ATTRIBUTE((__unused__))) {
   DBUG_ENTER_FUNC();
 
-  bool ret;
+  DBUG_ASSERT(tables != nullptr);
+  DBUG_ASSERT(tables->table != nullptr);
+  DBUG_ASSERT(tables->table->field != nullptr);
+
+  int ret = 0;
   uint64_t val;
 
   const std::vector<std::pair<std::string, std::string>> db_properties = {
@@ -172,23 +183,29 @@ static int rdb_i_s_dbstats_fill_table(my_core::THD *const thd,
        "DB_OLDEST_SNAPSHOT_TIME"}};
 
   rocksdb::DB *const rdb = rdb_get_rocksdb_db();
+
+  if (!rdb) {
+    DBUG_RETURN(ret);
+  }
+
   const rocksdb::BlockBasedTableOptions &table_options =
       rdb_get_table_options();
 
   for (const auto &property : db_properties) {
-    if (!rdb->GetIntProperty(property.first, &val))
+    if (!rdb->GetIntProperty(property.first, &val)) {
       continue;
-
-    DBUG_ASSERT(tables != nullptr);
+    }
 
     tables->table->field[RDB_DBSTATS_FIELD::STAT_TYPE]->store(
         property.second.c_str(), property.second.size(), system_charset_info);
     tables->table->field[RDB_DBSTATS_FIELD::VALUE]->store(val, true);
 
-    ret = my_core::schema_table_store_record(thd, tables->table);
+    ret = static_cast<int>(
+        my_core::schema_table_store_record(thd, tables->table));
 
-    if (ret)
+    if (ret) {
       DBUG_RETURN(ret);
+    }
   }
 
   /*
@@ -202,11 +219,13 @@ static int rdb_i_s_dbstats_fill_table(my_core::THD *const thd,
     information from the column family.
    */
   val = (table_options.block_cache ? table_options.block_cache->GetUsage() : 0);
+
   tables->table->field[RDB_DBSTATS_FIELD::STAT_TYPE]->store(
       STRING_WITH_LEN("DB_BLOCK_CACHE_USAGE"), system_charset_info);
   tables->table->field[RDB_DBSTATS_FIELD::VALUE]->store(val, true);
 
-  ret = my_core::schema_table_store_record(thd, tables->table);
+  ret =
+      static_cast<int>(my_core::schema_table_store_record(thd, tables->table));
 
   DBUG_RETURN(ret);
 }
@@ -250,17 +269,28 @@ static int rdb_i_s_perf_context_fill_table(my_core::THD *const thd,
 
   DBUG_ASSERT(thd != nullptr);
   DBUG_ASSERT(tables != nullptr);
+  DBUG_ASSERT(tables->table != nullptr);
 
   int ret = 0;
   Field **field = tables->table->field;
+  DBUG_ASSERT(field != nullptr);
+
+  rocksdb::DB *const rdb = rdb_get_rocksdb_db();
+
+  if (!rdb) {
+    DBUG_RETURN(ret);
+  }
 
   const std::vector<std::string> tablenames = rdb_get_open_table_names();
+
   for (const auto &it : tablenames) {
     std::string str, dbname, tablename, partname;
     Rdb_perf_counters counters;
 
-    if (rdb_normalize_tablename(it, &str)) {
-      DBUG_RETURN(HA_ERR_INTERNAL_ERROR);
+    int rc = rdb_normalize_tablename(it, &str);
+
+    if (rc != HA_EXIT_SUCCESS) {
+      DBUG_RETURN(rc);
     }
 
     if (rdb_split_normalized_tablename(str, &dbname, &tablename, &partname)) {
@@ -271,12 +301,11 @@ static int rdb_i_s_perf_context_fill_table(my_core::THD *const thd,
       continue;
     }
 
-    DBUG_ASSERT(field != nullptr);
-
     field[RDB_PERF_CONTEXT_FIELD::TABLE_SCHEMA]->store(
         dbname.c_str(), dbname.size(), system_charset_info);
     field[RDB_PERF_CONTEXT_FIELD::TABLE_NAME]->store(
         tablename.c_str(), tablename.size(), system_charset_info);
+
     if (partname.size() == 0) {
       field[RDB_PERF_CONTEXT_FIELD::PARTITION_NAME]->set_null();
     } else {
@@ -291,9 +320,12 @@ static int rdb_i_s_perf_context_fill_table(my_core::THD *const thd,
           system_charset_info);
       field[RDB_PERF_CONTEXT_FIELD::VALUE]->store(counters.m_value[i], true);
 
-      ret = my_core::schema_table_store_record(thd, tables->table);
-      if (ret)
+      ret = static_cast<int>(
+          my_core::schema_table_store_record(thd, tables->table));
+
+      if (ret) {
         DBUG_RETURN(ret);
+      }
     }
   }
 
@@ -334,26 +366,34 @@ static int rdb_i_s_perf_context_global_fill_table(
 
   DBUG_ASSERT(thd != nullptr);
   DBUG_ASSERT(tables != nullptr);
+  DBUG_ASSERT(tables->table != nullptr);
+  DBUG_ASSERT(tables->table->field != nullptr);
 
   int ret = 0;
+
+  rocksdb::DB *const rdb = rdb_get_rocksdb_db();
+
+  if (!rdb) {
+    DBUG_RETURN(ret);
+  }
 
   // Get a copy of the global perf counters.
   Rdb_perf_counters global_counters;
   rdb_get_global_perf_counters(&global_counters);
 
   for (int i = 0; i < PC_MAX_IDX; i++) {
-    DBUG_ASSERT(tables->table != nullptr);
-    DBUG_ASSERT(tables->table->field != nullptr);
-
     tables->table->field[RDB_PERF_CONTEXT_GLOBAL_FIELD::STAT_TYPE]->store(
         rdb_pc_stat_types[i].c_str(), rdb_pc_stat_types[i].size(),
         system_charset_info);
     tables->table->field[RDB_PERF_CONTEXT_GLOBAL_FIELD::VALUE]->store(
         global_counters.m_value[i], true);
 
-    ret = my_core::schema_table_store_record(thd, tables->table);
-    if (ret)
+    ret = static_cast<int>(
+        my_core::schema_table_store_record(thd, tables->table));
+
+    if (ret) {
       DBUG_RETURN(ret);
+    }
   }
 
   DBUG_RETURN(0);
@@ -396,13 +436,21 @@ static int rdb_i_s_cfoptions_fill_table(my_core::THD *const thd,
   DBUG_ASSERT(thd != nullptr);
   DBUG_ASSERT(tables != nullptr);
 
-  bool ret;
+  int ret = 0;
+
+  rocksdb::DB *const rdb = rdb_get_rocksdb_db();
+
+  if (!rdb) {
+    DBUG_RETURN(ret);
+  }
 
   Rdb_cf_manager &cf_manager = rdb_get_cf_manager();
 
   for (const auto &cf_name : cf_manager.get_cf_names()) {
     std::string val;
     rocksdb::ColumnFamilyOptions opts;
+
+    DBUG_ASSERT(!cf_name.empty());
     cf_manager.get_cf_options(cf_name, &opts);
 
     std::vector<std::pair<std::string, std::string>> cf_option_types = {
@@ -472,29 +520,37 @@ static int rdb_i_s_cfoptions_fill_table(my_core::THD *const thd,
 
     // get MAX_BYTES_FOR_LEVEL_MULTIPLIER_ADDITIONAL option value
     val = opts.max_bytes_for_level_multiplier_additional.empty() ? "NULL" : "";
+
     for (const auto &level : opts.max_bytes_for_level_multiplier_additional) {
       val.append(std::to_string(level) + ":");
     }
+
     val.pop_back();
     cf_option_types.push_back(
         {"MAX_BYTES_FOR_LEVEL_MULTIPLIER_ADDITIONAL", val});
 
     // get COMPRESSION_TYPE option value
     GetStringFromCompressionType(&val, opts.compression);
+
     if (val.empty()) {
       val = "NULL";
     }
+
     cf_option_types.push_back({"COMPRESSION_TYPE", val});
 
     // get COMPRESSION_PER_LEVEL option value
     val = opts.compression_per_level.empty() ? "NULL" : "";
+
     for (const auto &compression_type : opts.compression_per_level) {
       std::string res;
+
       GetStringFromCompressionType(&res, compression_type);
+
       if (!res.empty()) {
         val.append(res + ":");
       }
     }
+
     val.pop_back();
     cf_option_types.push_back({"COMPRESSION_PER_LEVEL", val});
 
@@ -502,12 +558,15 @@ static int rdb_i_s_cfoptions_fill_table(my_core::THD *const thd,
     val = std::to_string(opts.compression_opts.window_bits) + ":";
     val.append(std::to_string(opts.compression_opts.level) + ":");
     val.append(std::to_string(opts.compression_opts.strategy));
+
     cf_option_types.push_back({"COMPRESSION_OPTS", val});
 
     // bottommost_compression
     if (opts.bottommost_compression) {
       std::string res;
+
       GetStringFromCompressionType(&res, opts.bottommost_compression);
+
       if (!res.empty()) {
         cf_option_types.push_back({"BOTTOMMOST_COMPRESSION", res});
       }
@@ -536,12 +595,15 @@ static int rdb_i_s_cfoptions_fill_table(my_core::THD *const thd,
     default:
       val = "NULL";
     }
+
     cf_option_types.push_back({"COMPACTION_STYLE", val});
 
     // get COMPACTION_OPTIONS_UNIVERSAL related options
     const rocksdb::CompactionOptionsUniversal compac_opts =
         opts.compaction_options_universal;
+
     val = "{SIZE_RATIO=";
+
     val.append(std::to_string(compac_opts.size_ratio));
     val.append("; MIN_MERGE_WIDTH=");
     val.append(std::to_string(compac_opts.min_merge_width));
@@ -552,6 +614,7 @@ static int rdb_i_s_cfoptions_fill_table(my_core::THD *const thd,
     val.append("; COMPRESSION_SIZE_PERCENT=");
     val.append(std::to_string(compac_opts.compression_size_percent));
     val.append("; STOP_STYLE=");
+
     switch (compac_opts.stop_style) {
     case rocksdb::kCompactionStopStyleSimilarSize:
       val.append("kCompactionStopStyleSimilarSize}");
@@ -562,6 +625,7 @@ static int rdb_i_s_cfoptions_fill_table(my_core::THD *const thd,
     default:
       val.append("}");
     }
+
     cf_option_types.push_back({"COMPACTION_OPTIONS_UNIVERSAL", val});
 
     // get COMPACTION_OPTION_FIFO option
@@ -569,96 +633,24 @@ static int rdb_i_s_cfoptions_fill_table(my_core::THD *const thd,
         {"COMPACTION_OPTION_FIFO::MAX_TABLE_FILES_SIZE",
          std::to_string(opts.compaction_options_fifo.max_table_files_size)});
 
-    // get block-based table related options
-    const rocksdb::BlockBasedTableOptions &table_options =
-        rdb_get_table_options();
+    // get table related options
+    std::vector<std::string> table_options =
+        split_into_vector(opts.table_factory->GetPrintableTableOptions(), '\n');
 
-    // get BLOCK_BASED_TABLE_FACTORY::CACHE_INDEX_AND_FILTER_BLOCKS option
-    cf_option_types.push_back(
-        {"BLOCK_BASED_TABLE_FACTORY::CACHE_INDEX_AND_FILTER_BLOCKS",
-         table_options.cache_index_and_filter_blocks ? "1" : "0"});
+    for (auto option : table_options) {
+      option.erase(std::remove(option.begin(), option.end(), ' '),
+                   option.end());
 
-    // get BLOCK_BASED_TABLE_FACTORY::INDEX_TYPE option value
-    switch (table_options.index_type) {
-    case rocksdb::BlockBasedTableOptions::kBinarySearch:
-      val = "kBinarySearch";
-      break;
-    case rocksdb::BlockBasedTableOptions::kHashSearch:
-      val = "kHashSearch";
-      break;
-    default:
-      val = "NULL";
+      int pos = option.find(":");
+      std::string option_name = option.substr(0, pos);
+      std::string option_value = option.substr(pos + 1, option.length());
+      std::transform(option_name.begin(), option_name.end(),
+                     option_name.begin(),
+                     [](unsigned char c) { return std::toupper(c); });
+
+      cf_option_types.push_back(
+          {"TABLE_FACTORY::" + option_name, option_value});
     }
-    cf_option_types.push_back({"BLOCK_BASED_TABLE_FACTORY::INDEX_TYPE", val});
-
-    // get BLOCK_BASED_TABLE_FACTORY::HASH_INDEX_ALLOW_COLLISION option value
-    cf_option_types.push_back(
-        {"BLOCK_BASED_TABLE_FACTORY::HASH_INDEX_ALLOW_COLLISION",
-         table_options.hash_index_allow_collision ? "ON" : "OFF"});
-
-    // get BLOCK_BASED_TABLE_FACTORY::CHECKSUM option value
-    switch (table_options.checksum) {
-    case rocksdb::kNoChecksum:
-      val = "kNoChecksum";
-      break;
-    case rocksdb::kCRC32c:
-      val = "kCRC32c";
-      break;
-    case rocksdb::kxxHash:
-      val = "kxxHash";
-      break;
-    default:
-      val = "NULL";
-    }
-    cf_option_types.push_back({"BLOCK_BASED_TABLE_FACTORY::CHECKSUM", val});
-
-    // get BLOCK_BASED_TABLE_FACTORY::NO_BLOCK_CACHE option value
-    cf_option_types.push_back({"BLOCK_BASED_TABLE_FACTORY::NO_BLOCK_CACHE",
-                               table_options.no_block_cache ? "ON" : "OFF"});
-
-    // get BLOCK_BASED_TABLE_FACTORY::FILTER_POLICY option
-    cf_option_types.push_back(
-        {"BLOCK_BASED_TABLE_FACTORY::FILTER_POLICY",
-         table_options.filter_policy == nullptr
-             ? "NULL"
-             : std::string(table_options.filter_policy->Name())});
-
-    // get BLOCK_BASED_TABLE_FACTORY::WHOLE_KEY_FILTERING option
-    cf_option_types.push_back({"BLOCK_BASED_TABLE_FACTORY::WHOLE_KEY_FILTERING",
-                               table_options.whole_key_filtering ? "1" : "0"});
-
-    // get BLOCK_BASED_TABLE_FACTORY::BLOCK_CACHE option
-    cf_option_types.push_back(
-        {"BLOCK_BASED_TABLE_FACTORY::BLOCK_CACHE",
-         table_options.block_cache == nullptr
-             ? "NULL"
-             : std::to_string(table_options.block_cache->GetUsage())});
-
-    // get BLOCK_BASED_TABLE_FACTORY::BLOCK_CACHE_COMPRESSED option
-    cf_option_types.push_back(
-        {"BLOCK_BASED_TABLE_FACTORY::BLOCK_CACHE_COMPRESSED",
-         table_options.block_cache_compressed == nullptr
-             ? "NULL"
-             : std::to_string(
-                   table_options.block_cache_compressed->GetUsage())});
-
-    // get BLOCK_BASED_TABLE_FACTORY::BLOCK_SIZE option
-    cf_option_types.push_back({"BLOCK_BASED_TABLE_FACTORY::BLOCK_SIZE",
-                               std::to_string(table_options.block_size)});
-
-    // get BLOCK_BASED_TABLE_FACTORY::BLOCK_SIZE_DEVIATION option
-    cf_option_types.push_back(
-        {"BLOCK_BASED_TABLE_FACTORY::BLOCK_SIZE_DEVIATION",
-         std::to_string(table_options.block_size_deviation)});
-
-    // get BLOCK_BASED_TABLE_FACTORY::BLOCK_RESTART_INTERVAL option
-    cf_option_types.push_back(
-        {"BLOCK_BASED_TABLE_FACTORY::BLOCK_RESTART_INTERVAL",
-         std::to_string(table_options.block_restart_interval)});
-
-    // get BLOCK_BASED_TABLE_FACTORY::FORMAT_VERSION option
-    cf_option_types.push_back({"BLOCK_BASED_TABLE_FACTORY::FORMAT_VERSION",
-                               std::to_string(table_options.format_version)});
 
     for (const auto &cf_option_type : cf_option_types) {
       DBUG_ASSERT(tables->table != nullptr);
@@ -673,12 +665,15 @@ static int rdb_i_s_cfoptions_fill_table(my_core::THD *const thd,
           cf_option_type.second.c_str(), cf_option_type.second.size(),
           system_charset_info);
 
-      ret = my_core::schema_table_store_record(thd, tables->table);
+      ret = static_cast<int>(
+          my_core::schema_table_store_record(thd, tables->table));
 
-      if (ret)
+      if (ret) {
         DBUG_RETURN(ret);
+      }
     }
   }
+
   DBUG_RETURN(0);
 }
 
@@ -748,6 +743,7 @@ static int rdb_i_s_global_info_fill_table(my_core::THD *const thd,
 
   if (dict_manager->get_max_index_id(&max_index_id)) {
     snprintf(max_index_id_buf, INT_BUF_LEN, "%u", max_index_id);
+
     ret |= rdb_global_info_fill_row(thd, tables, "MAX_INDEX_ID", "MAX_INDEX_ID",
                                     max_index_id_buf);
   }
@@ -788,14 +784,17 @@ static int rdb_i_s_global_info_fill_table(my_core::THD *const thd,
   dict_manager->get_ongoing_index_operation(
       &gl_index_ids, Rdb_key_def::DDL_DROP_INDEX_ONGOING);
   char cf_id_index_buf[CF_ID_INDEX_BUF_LEN] = {0};
+
   for (auto gl_index_id : gl_index_ids) {
     snprintf(cf_id_index_buf, CF_ID_INDEX_BUF_LEN, "cf_id:%u,index_id:%u",
              gl_index_id.cf_id, gl_index_id.index_id);
+
     ret |= rdb_global_info_fill_row(thd, tables, "DDL_DROP_INDEX_ONGOING",
                                     cf_id_index_buf, "");
 
-    if (ret)
+    if (ret) {
       break;
+    }
   }
 
   DBUG_RETURN(ret);
@@ -814,22 +813,21 @@ static int rdb_i_s_compact_stats_fill_table(my_core::THD *thd,
   DBUG_ENTER_FUNC();
 
   int ret = 0;
-
   rocksdb::DB *rdb = rdb_get_rocksdb_db();
+
+  if (!rdb) {
+    DBUG_RETURN(ret);
+  }
+
   Rdb_cf_manager &cf_manager = rdb_get_cf_manager();
-  DBUG_ASSERT(rdb != nullptr);
 
   for (auto cf_name : cf_manager.get_cf_names()) {
-    rocksdb::ColumnFamilyHandle *cfh;
-    bool is_automatic;
-    /*
-       Only the cf name is important. Whether it was generated automatically
-       does not matter, so is_automatic is ignored.
-    */
-    cfh = cf_manager.get_cf(cf_name.c_str(), "", nullptr, &is_automatic);
+    rocksdb::ColumnFamilyHandle *cfh = cf_manager.get_cf(cf_name);
+
     if (cfh == nullptr) {
       continue;
     }
+
     std::map<std::string, double> props;
     bool bool_ret MY_ATTRIBUTE((__unused__));
     bool_ret = rdb->GetMapProperty(cfh, "rocksdb.cfstats", &props);
@@ -845,12 +843,15 @@ static int rdb_i_s_compact_stats_fill_table(my_core::THD *thd,
 
       Field **field = tables->table->field;
       DBUG_ASSERT(field != nullptr);
+
       field[0]->store(cf_name.c_str(), cf_name.size(), system_charset_info);
       field[1]->store(level_str.c_str(), level_str.size(), system_charset_info);
       field[2]->store(type_str.c_str(), type_str.size(), system_charset_info);
       field[3]->store(value, true);
 
-      ret |= my_core::schema_table_store_record(thd, tables->table);
+      ret |= static_cast<int>(
+          my_core::schema_table_store_record(thd, tables->table));
+
       if (ret != 0) {
         DBUG_RETURN(ret);
       }
@@ -965,14 +966,24 @@ static int rdb_i_s_ddl_fill_table(my_core::THD *const thd,
 
   DBUG_ASSERT(thd != nullptr);
   DBUG_ASSERT(tables != nullptr);
+  DBUG_ASSERT(tables->table != nullptr);
+
+  int ret = 0;
+  rocksdb::DB *const rdb = rdb_get_rocksdb_db();
+
+  if (!rdb) {
+    DBUG_RETURN(ret);
+  }
 
   Rdb_ddl_scanner ddl_arg;
+
   ddl_arg.m_thd = thd;
   ddl_arg.m_table = tables->table;
 
   Rdb_ddl_manager *ddl_manager = rdb_get_ddl_manager();
   DBUG_ASSERT(ddl_manager != nullptr);
-  int ret = ddl_manager->scan_for_tables(&ddl_arg);
+
+  ret = ddl_manager->scan_for_tables(&ddl_arg);
 
   DBUG_RETURN(ret);
 }
@@ -1108,14 +1119,19 @@ static int rdb_i_s_index_file_map_fill_table(my_core::THD *const thd,
 
   /* Iterate over all the column families */
   rocksdb::DB *const rdb = rdb_get_rocksdb_db();
-  DBUG_ASSERT(rdb != nullptr);
+
+  if (!rdb) {
+    DBUG_RETURN(ret);
+  }
 
   const Rdb_cf_manager &cf_manager = rdb_get_cf_manager();
+
   for (const auto &cf_handle : cf_manager.get_all_cf()) {
     /* Grab the the properties of all the tables in the column family */
     rocksdb::TablePropertiesCollection table_props_collection;
     const rocksdb::Status s =
         rdb->GetPropertiesOfAllTables(cf_handle, &table_props_collection);
+
     if (!s.ok()) {
       continue;
     }
@@ -1125,12 +1141,14 @@ static int rdb_i_s_index_file_map_fill_table(my_core::THD *const thd,
     for (const auto &props : table_props_collection) {
       /* Add the SST name into the output */
       const std::string sst_name = rdb_filename_without_path(props.first);
+
       field[RDB_INDEX_FILE_MAP_FIELD::SST_NAME]->store(
           sst_name.data(), sst_name.size(), system_charset_info);
 
       /* Get the __indexstats__ data out of the table property */
       std::vector<Rdb_index_stats> stats;
       Rdb_tbl_prop_coll::read_stats_from_tbl_props(props.second, &stats);
+
       if (stats.empty()) {
         field[RDB_INDEX_FILE_MAP_FIELD::COLUMN_FAMILY]->store(-1, true);
         field[RDB_INDEX_FILE_MAP_FIELD::INDEX_NUMBER]->store(-1, true);
@@ -1141,7 +1159,7 @@ static int rdb_i_s_index_file_map_fill_table(my_core::THD *const thd,
         field[RDB_INDEX_FILE_MAP_FIELD::ENTRY_MERGES]->store(-1, true);
         field[RDB_INDEX_FILE_MAP_FIELD::ENTRY_OTHERS]->store(-1, true);
       } else {
-        for (auto it : stats) {
+        for (const auto &it : stats) {
           /* Add the index number, the number of rows, and data size to the
            * output */
           field[RDB_INDEX_FILE_MAP_FIELD::COLUMN_FAMILY]->store(
@@ -1159,12 +1177,14 @@ static int rdb_i_s_index_file_map_fill_table(my_core::THD *const thd,
               it.m_entry_merges, true);
           field[RDB_INDEX_FILE_MAP_FIELD::ENTRY_OTHERS]->store(
               it.m_entry_others, true);
+
           std::string distinct_keys_prefix;
 
           for (size_t i = 0; i < it.m_distinct_keys_per_prefix.size(); i++) {
             if (i > 0) {
               distinct_keys_prefix += ",";
             }
+
             distinct_keys_prefix +=
                 std::to_string(it.m_distinct_keys_per_prefix[i]);
           }
@@ -1174,7 +1194,9 @@ static int rdb_i_s_index_file_map_fill_table(my_core::THD *const thd,
               system_charset_info);
 
           /* Tell MySQL about this row in the virtual table */
-          ret = my_core::schema_table_store_record(thd, tables->table);
+          ret = static_cast<int>(
+              my_core::schema_table_store_record(thd, tables->table));
+
           if (ret != 0) {
             break;
           }
@@ -1227,11 +1249,15 @@ static int rdb_i_s_lock_info_fill_table(my_core::THD *const thd,
   DBUG_ASSERT(thd != nullptr);
   DBUG_ASSERT(tables != nullptr);
   DBUG_ASSERT(tables->table != nullptr);
+  DBUG_ASSERT(tables->table->field != nullptr);
 
   int ret = 0;
 
   rocksdb::TransactionDB *const rdb = rdb_get_rocksdb_db();
-  DBUG_ASSERT(rdb != nullptr);
+
+  if (!rdb) {
+    DBUG_RETURN(ret);
+  }
 
   /* cf id -> rocksdb::KeyLockInfo */
   std::unordered_multimap<uint32_t, rocksdb::KeyLockInfo> lock_info =
@@ -1254,12 +1280,15 @@ static int rdb_i_s_lock_info_fill_table(my_core::THD *const thd,
           key_lock_info.exclusive ? "X" : "S", 1, system_charset_info);
 
       /* Tell MySQL about this row in the virtual table */
-      ret = my_core::schema_table_store_record(thd, tables->table);
+      ret = static_cast<int>(
+          my_core::schema_table_store_record(thd, tables->table));
+
       if (ret != 0) {
         break;
       }
     }
   }
+
   DBUG_RETURN(ret);
 }
 
@@ -1335,8 +1364,14 @@ static int rdb_i_s_trx_info_fill_table(my_core::THD *const thd,
   DBUG_ASSERT(thd != nullptr);
   DBUG_ASSERT(tables != nullptr);
   DBUG_ASSERT(tables->table != nullptr);
+  DBUG_ASSERT(tables->table->field != nullptr);
 
   int ret = 0;
+  rocksdb::DB *const rdb = rdb_get_rocksdb_db();
+
+  if (!rdb) {
+    DBUG_RETURN(ret);
+  }
 
   const std::vector<Rdb_trx_info> &all_trx_info = rdb_get_all_trx_info();
 
@@ -1345,6 +1380,7 @@ static int rdb_i_s_trx_info_fill_table(my_core::THD *const thd,
         rdb_hexdump(info.name.c_str(), info.name.length(), NAME_LEN);
     auto key_hexstr = rdb_hexdump(info.waiting_key.c_str(),
                                   info.waiting_key.length(), FN_REFLEN);
+
     tables->table->field[RDB_TRX_FIELD::TRANSACTION_ID]->store(info.trx_id,
                                                                true);
     tables->table->field[RDB_TRX_FIELD::STATE]->store(
@@ -1376,7 +1412,9 @@ static int rdb_i_s_trx_info_fill_table(my_core::THD *const thd,
         info.query_str.c_str(), info.query_str.length(), system_charset_info);
 
     /* Tell MySQL about this row in the virtual table */
-    ret = my_core::schema_table_store_record(thd, tables->table);
+    ret = static_cast<int>(
+        my_core::schema_table_store_record(thd, tables->table));
+
     if (ret != 0) {
       break;
     }
