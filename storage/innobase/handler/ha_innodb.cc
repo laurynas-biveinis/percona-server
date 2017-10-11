@@ -1737,8 +1737,7 @@ innobase_srv_conc_enter_innodb(
 
 			--trx->n_tickets_to_enter_innodb;
 
-		} else if (trx->mysql_thd != NULL
-			   && thd_is_replication_slave_thread(trx->mysql_thd)) {
+		} else if (thd_is_replication_slave_thread(trx->mysql_thd)) {
 
 			UT_WAIT_FOR(
 				srv_conc_get_active_threads()
