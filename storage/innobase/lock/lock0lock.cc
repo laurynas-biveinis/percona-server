@@ -52,7 +52,12 @@ Created 5/7/1996 Heikki Tuuri
 
 #include <algorithm>
 #include <set>
+#include <utility>
 #include <vector>
+
+/** A pair of a pointer to a waiting lock and its transaction FIFO queue
+number */
+typedef std::pair<lock_t *, ulint> lock_seq_t;
 
 /* Flag to enable/disable deadlock detector. */
 my_bool	innobase_deadlock_detect = TRUE;
@@ -1523,25 +1528,24 @@ Otherwise, the one with an older transaction has higher priority.
 static
 bool
 has_higher_priority(
-	lock_t *lock1,
-	lock_t *lock2)
+	const lock_seq_t &lock1_seq,
+	const lock_seq_t &lock2_seq)
 {
-	if (lock1 == NULL) {
-		return false;
-	} else if (lock2 == NULL) {
+	if (trx_is_high_priority(lock1_seq.first->trx)
+	    && trx_is_high_priority(lock2_seq.first->trx)) {
+
+		return lock1_seq.second < lock2_seq.second;
+	}
+	if (trx_is_high_priority(lock1_seq.first->trx)) {
+
 		return true;
 	}
-	if (trx_is_high_priority(lock1->trx)
-	 && trx_is_high_priority(lock2->trx)) {
-		return lock1->trx->seq < lock2->trx->seq;
-	}
-	if (trx_is_high_priority(lock1->trx)) {
-		return true;
-	}
-	if (trx_is_high_priority(lock2->trx)) {
+	if (trx_is_high_priority(lock2_seq.first->trx)) {
+
 		return false;
 	}
-	return lock1->trx->dep_size > lock2->trx->dep_size;
+
+	return lock1_seq.first->trx->dep_size > lock2_seq.first->trx->dep_size;
 }
 
 static
@@ -2694,7 +2698,6 @@ vats_grant(
 	ulint		space;
 	ulint		page_no;
 	ulint       rec_fold;
-	ulint       i;
 	ulint       j;
 	long        sub_dep_size_total;
 	long        add_dep_size_total;
@@ -2702,30 +2705,29 @@ vats_grant(
 	lock_t*		lock;
 	lock_t*		wait_lock;
 	lock_t*		new_granted_lock;
-	std::vector<lock_t *> wait_locks;
+	std::vector<lock_seq_t> wait_locks;
 	std::vector<lock_t *> granted_locks;
 	std::vector<lock_t *> new_granted;
 
-	i = 0;
+	ulint i	= 0;
 	sub_dep_size_total = 0;
 	add_dep_size_total = 0;
 	space = released_lock->un_member.rec_lock.space;
 	page_no = released_lock->un_member.rec_lock.page_no;
 	rec_fold = lock_rec_fold(space, page_no);
 	for (lock = lock_rec_get_first(lock_hash, space, page_no, heap_no);
-		 lock != NULL;
-		 lock = lock_rec_get_next(heap_no, lock)) {
+	     lock != NULL;
+	     lock = lock_rec_get_next(heap_no, lock)) {
 		if (!lock_get_wait(lock)) {
 			granted_locks.push_back(lock);
 		} else {
-			lock->trx->seq = i++;
-			wait_locks.push_back(lock);
+			wait_locks.push_back(std::make_pair(lock, i++));
 		}
 	}
 
 	std::sort(wait_locks.begin(), wait_locks.end(), has_higher_priority);
 	for (i = 0; i < wait_locks.size(); ++i) {
-		lock = wait_locks[i];
+		lock = wait_locks[i].first;
 		if (!lock_rec_has_to_wait_granted(lock, granted_locks)
 			&& !lock_rec_has_to_wait_granted(lock, new_granted)) {
 			lock_grant(lock, false);
@@ -2758,7 +2760,7 @@ vats_grant(
 		lock = new_granted[i];
 		dep_size_compsensate = 0;
 		for (j = 0; j < wait_locks.size(); ++j) {
-			wait_lock = wait_locks[j];
+			wait_lock = wait_locks[j].first;
 			if (lock_get_wait(wait_lock)
 				&& lock->trx == wait_lock->trx) {
 				dep_size_compsensate -= lock->trx->dep_size + 1;
