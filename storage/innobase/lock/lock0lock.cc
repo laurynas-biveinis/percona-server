@@ -1631,9 +1631,11 @@ update_dep_size(
 	}
 
 	trx->size_updated = true;
-	trx->dep_size += size_delta;
-	if (trx->dep_size < 0) {
+	// TODO: remove this clamping by zero
+	if (static_cast<long>(trx->dep_size) + size_delta < 0) {
 		trx->dep_size = 0;
+	} else {
+		trx->dep_size += size_delta;
 	}
 	wait_lock = trx->lock.wait_lock;
 	if (trx->state != TRX_STATE_ACTIVE
@@ -2699,8 +2701,6 @@ vats_grant(
 	ulint		page_no;
 	ulint       rec_fold;
 	ulint       j;
-	long        sub_dep_size_total;
-	long        add_dep_size_total;
 	long        dep_size_compsensate;
 	lock_t*		lock;
 	lock_t*		wait_lock;
@@ -2710,8 +2710,6 @@ vats_grant(
 	std::vector<lock_t *> new_granted;
 
 	ulint i	= 0;
-	sub_dep_size_total = 0;
-	add_dep_size_total = 0;
 	space = released_lock->un_member.rec_lock.space;
 	page_no = released_lock->un_member.rec_lock.page_no;
 	rec_fold = lock_rec_fold(space, page_no);
@@ -2726,6 +2724,9 @@ vats_grant(
 	}
 
 	std::sort(wait_locks.begin(), wait_locks.end(), has_higher_priority);
+
+	long	add_dep_size_total	= 0;
+	long	sub_dep_size_total	= 0;
 	for (i = 0; i < wait_locks.size(); ++i) {
 		lock = wait_locks[i].first;
 		if (!lock_rec_has_to_wait_granted(lock, granted_locks)
@@ -2743,6 +2744,10 @@ vats_grant(
 	if (lock_get_wait(released_lock)) {
 		sub_dep_size_total -= released_lock->trx->dep_size + 1;
 	}
+
+	ut_ad(add_dep_size_total >= 0);
+	ut_ad(sub_dep_size_total <= 0);
+
 	for (i = 0; i < granted_locks.size(); ++i) {
 		lock = granted_locks[i];
 		dep_size_compsensate = 0;
@@ -2753,6 +2758,7 @@ vats_grant(
 			}
 		}
 		if (lock->trx != released_lock->trx) {
+			ut_ad(dep_size_compsensate >= 0);
 			update_dep_size(lock->trx, sub_dep_size_total + dep_size_compsensate);
 		}
 	}
@@ -2767,6 +2773,7 @@ vats_grant(
 			}
 		}
 		if (lock->trx != released_lock->trx) {
+			ut_ad(dep_size_compsensate <= 0);
 			update_dep_size(lock->trx, add_dep_size_total + dep_size_compsensate);
 		}
 	}
