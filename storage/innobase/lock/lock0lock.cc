@@ -2697,6 +2697,8 @@ vats_grant(
     lock_t *released_lock,
     ulint   heap_no)
 {
+	ut_ad(lock_mutex_own());
+
 	ulint		space;
 	ulint		page_no;
 	ulint       rec_fold;
@@ -2730,6 +2732,10 @@ vats_grant(
 		lock = wait_locks[i].first;
 		if (!lock_rec_has_to_wait_granted(lock, granted_locks)
 			&& !lock_rec_has_to_wait_granted(lock, new_granted)) {
+
+			ut_ad(lock->trx->error_state != DB_DEADLOCK);
+			ut_ad(!lock->trx->lock.was_chosen_as_deadlock_victim);
+
 			lock_grant(lock, false);
 			HASH_DELETE(lock_t, hash, lock_hash,
 						rec_fold, lock);
