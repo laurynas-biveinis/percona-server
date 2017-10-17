@@ -77,25 +77,6 @@ static const ulint	TABLE_LOCK_CACHE = 8;
 /** Size in bytes, of the table lock instance */
 static const ulint	TABLE_LOCK_SIZE = sizeof(ib_lock_t);
 
-/*********************************************************************//**
-Checks if a waiting record lock request still has to wait in a queue.
-@return lock that is causing the wait */
-static
-const lock_t*
-lock_rec_has_to_wait_in_queue(
-/*==========================*/
-  const lock_t*	wait_lock);	/*!< in: waiting record lock */
-
-/*************************************************************//**
-Grants a lock to a waiting lock request and releases the waiting transaction.
-The caller must hold lock_sys->mutex. */
-static
-void
-lock_grant(
-/*=======*/
-	lock_t*	lock,	/*!< in/out: waiting lock request */
-    bool    owns_trx_mutex);    /*!< in: whether lock->trx->mutex is owned */
-
 /** Deadlock checker. */
 class DeadlockChecker {
 public:
