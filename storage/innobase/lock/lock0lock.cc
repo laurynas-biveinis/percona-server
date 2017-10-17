@@ -2701,7 +2701,6 @@ vats_grant(
 	ulint		page_no;
 	ulint       rec_fold;
 	ulint       j;
-	long        dep_size_compsensate;
 	lock_t*		lock;
 	lock_t*		wait_lock;
 	lock_t*		new_granted_lock;
@@ -2750,32 +2749,37 @@ vats_grant(
 
 	for (i = 0; i < granted_locks.size(); ++i) {
 		lock = granted_locks[i];
-		dep_size_compsensate = 0;
+		if (lock->trx == released_lock->trx)
+			continue;
+
+		long dep_size_compensate = 0;
 		for (j = 0; j < new_granted.size(); ++j) {
 			new_granted_lock = new_granted[j];
 			if (lock->trx == new_granted_lock->trx) {
-				dep_size_compsensate += lock->trx->dep_size + 1;
+				dep_size_compensate += lock->trx->dep_size + 1;
 			}
 		}
-		if (lock->trx != released_lock->trx) {
-			ut_ad(dep_size_compsensate >= 0);
-			update_dep_size(lock->trx, sub_dep_size_total + dep_size_compsensate);
-		}
+		ut_ad(dep_size_compensate >= 0);
+		update_dep_size(lock->trx,
+				sub_dep_size_total + dep_size_compensate);
 	}
+
 	for (i = 0; i < new_granted.size(); ++i) {
 		lock = new_granted[i];
-		dep_size_compsensate = 0;
+		if (lock->trx == released_lock->trx)
+			continue;
+
+		long dep_size_compensate = 0;
 		for (j = 0; j < wait_locks.size(); ++j) {
 			wait_lock = wait_locks[j].first;
 			if (lock_get_wait(wait_lock)
-				&& lock->trx == wait_lock->trx) {
-				dep_size_compsensate -= lock->trx->dep_size + 1;
+			    && lock->trx == wait_lock->trx) {
+				dep_size_compensate -= lock->trx->dep_size + 1;
 			}
 		}
-		if (lock->trx != released_lock->trx) {
-			ut_ad(dep_size_compsensate <= 0);
-			update_dep_size(lock->trx, add_dep_size_total + dep_size_compsensate);
-		}
+		ut_ad(dep_size_compensate <= 0);
+		update_dep_size(lock->trx,
+				add_dep_size_total + dep_size_compensate);
 	}
 }
 
