@@ -1034,6 +1034,7 @@ struct lock_sys_t{
 
 	bool		timeout_thread_active;	/*!< True if the timeout thread
 						is running */
+	uint64_t	dep_size_updated;
 };
 
 /*************************************************************//**

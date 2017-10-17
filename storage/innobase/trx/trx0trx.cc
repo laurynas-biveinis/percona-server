@@ -1519,7 +1519,7 @@ trx_start_low(
 		trx->start_time = ut_time();
 	}
 	trx->dep_size = 0;
-	trx->size_updated = false;
+	trx->size_updated = 0;
 
 	ut_a(trx->error_state == DB_SUCCESS);
 

@@ -1597,28 +1597,12 @@ lock_rec_insert_to_head(
 
 static
 void
-reset_trx_size_updated()
-{
-	trx_t *trx;
-	for (trx = UT_LIST_GET_FIRST(trx_sys->rw_trx_list);
-		 trx != NULL;
-		 trx = UT_LIST_GET_NEXT(trx_list, trx)) {
-		trx->size_updated = false;
-	}
-	for (trx = UT_LIST_GET_FIRST(trx_sys->mysql_trx_list);
-		 trx != NULL;
-		 trx = UT_LIST_GET_NEXT(trx_list, trx)) {
-		trx->size_updated = false;
-	}
-}
-
-static
-void
 update_dep_size(
-    trx_t  *trx,
-    long    size_delta,
-    long    depth=1)
+	trx_t  *trx,
+	long    size_delta)
 {
+	ut_ad(lock_mutex_own());
+
 	ulint   space;
 	ulint   page_no;
 	ulint   heap_no;
@@ -1626,11 +1610,14 @@ update_dep_size(
 	lock_t *wait_lock;
 	hash_table_t *lock_hash;
 
-	if (!use_vats(trx) || trx->size_updated || size_delta == 0) {
+	if (!use_vats(trx) || trx->size_updated == lock_sys->dep_size_updated
+	    || size_delta == 0) {
 		return;
 	}
 
-	trx->size_updated = true;
+	ut_ad(trx->size_updated < lock_sys->dep_size_updated);
+	trx->size_updated = lock_sys->dep_size_updated;
+
 	// TODO: remove this clamping by zero
 	if (static_cast<long>(trx->dep_size) + size_delta < 0) {
 		trx->dep_size = 0;
@@ -1638,11 +1625,8 @@ update_dep_size(
 		trx->dep_size += size_delta;
 	}
 	wait_lock = trx->lock.wait_lock;
-	if (trx->state != TRX_STATE_ACTIVE
-		|| wait_lock == NULL) {
-		if (depth == 1) {
-			reset_trx_size_updated();
-		}
+	if (trx->state != TRX_STATE_ACTIVE || wait_lock == NULL) {
+
 		return;
 	}
 
@@ -1655,11 +1639,8 @@ update_dep_size(
 		 lock = lock_rec_get_next(heap_no, lock)) {
 		if (!lock_get_wait(lock)
 			&& trx != lock->trx) {
-			update_dep_size(lock->trx, size_delta, depth + 1);
+			update_dep_size(lock->trx, size_delta);
 		}
-	}
-	if (depth == 1) {
-		reset_trx_size_updated();
 	}
 }
 
@@ -1679,6 +1660,8 @@ update_dep_size(
 	if (!use_vats(in_lock->trx)) {
 		return;
 	}
+
+	++lock_sys->dep_size_updated;
 
 	space = in_lock->un_member.rec_lock.space;
 	page_no = in_lock->un_member.rec_lock.page_no;
@@ -2752,6 +2735,8 @@ vats_grant(
 
 	ut_ad(add_dep_size_total >= 0);
 	ut_ad(sub_dep_size_total <= 0);
+
+	++lock_sys->dep_size_updated;
 
 	for (i = 0; i < granted_locks.size(); ++i) {
 		lock = granted_locks[i];
