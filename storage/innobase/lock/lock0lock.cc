@@ -1557,23 +1557,26 @@ lock_rec_get_first(
 	return lock;
 }
 
+/** Insert lock record to the head of the queue.
+@param[in,out]	lock_hash	Hash table containing the locks
+@param[in,out]	lock		Record lock instance to insert
+@param[in]	rec_fold	Hash fold */
 static
 void
 lock_rec_insert_to_head(
-	hash_table_t *lock_hash,
-    lock_t *lock,
-    ulint   rec_fold)
+	hash_table_t	*lock_hash,
+	lock_t		*lock,
+	ulint		rec_fold)
 {
-	lock_t *next;
-	hash_cell_t* cell;
+	hash_cell_t* const cell
+		= hash_get_nth_cell(lock_hash,
+				    hash_calc_hash(rec_fold, lock_hash));
 
-	// Move the target lock to the head of the list
-	cell = hash_get_nth_cell(lock_hash, hash_calc_hash(rec_fold, lock_hash));
-	if (lock != cell->node) {
-		next = (lock_t *) cell->node;
-		cell->node = lock;
-		lock->hash = next;
-	}
+	ut_ad (lock != cell->node);
+
+	lock_t * const next = static_cast<lock_t *>(cell->node);
+	cell->node = lock;
+	lock->hash = next;
 }
 
 static
