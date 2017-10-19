@@ -1609,6 +1609,7 @@ update_dep_size(
 		trx->dep_size += size_delta;
 	}
 	wait_lock = trx->lock.wait_lock;
+	// TODO ut_ad(trx->state == TRX_STATE_ACTIVE);
 	if (trx->state != TRX_STATE_ACTIVE || wait_lock == NULL) {
 
 		return;
@@ -1631,10 +1632,13 @@ update_dep_size(
 static
 void
 update_dep_size(
-    lock_t *in_lock,
-    ulint   heap_no,
-    bool    wait)
+	lock_t *in_lock,
+	ulint   heap_no)
 {
+	ut_ad(lock_mutex_own());
+	// TODO: rollback might still call this legitimately through RecLock::lock_add
+	ut_ad(!in_lock->trx->lock.was_chosen_as_deadlock_victim);
+
 	lock_t *lock;
 	ulint   space;
 	ulint   page_no;
@@ -1651,7 +1655,7 @@ update_dep_size(
 	page_no = in_lock->un_member.rec_lock.page_no;
 	lock_hash = lock_hash_get(in_lock->type_mode);
 
-	if (wait) {
+	if (in_lock->is_waiting()) {
 		for (lock = lock_rec_get_first(lock_hash, space, page_no, heap_no);
 			 lock != NULL;
 			 lock = lock_rec_get_next(heap_no, lock)) {
@@ -1702,10 +1706,12 @@ RecLock::lock_add(lock_t* lock, bool add_to_hash)
 	UT_LIST_ADD_LAST(lock->trx->lock.trx_locks, lock);
 
 	if (wait) {
+
 		lock_set_lock_and_trx_wait(lock, lock->trx);
-    } else {
-        update_dep_size(lock, lock_rec_find_set_bit(lock), false);
-    }
+	} else {
+
+		update_dep_size(lock, lock_rec_find_set_bit(lock));
+	}
 }
 
 /**
@@ -1931,16 +1937,28 @@ RecLock::add_to_waitq(const lock_t* wait_for, const lock_prdt_t* prdt)
 
 	ut_ad(lock_get_wait(lock));
 
-    dberr_t	err = deadlock_check(lock);
+	dberr_t	err = deadlock_check(lock);
 
-    ut_ad(trx_mutex_own(m_trx));
+	ut_ad(trx_mutex_own(m_trx));
 
-    update_dep_size(lock, lock_rec_find_set_bit(lock), err == DB_LOCK_WAIT || err == DB_DEADLOCK);
+	if (err != DB_DEADLOCK
+	    || (!m_trx->lock.was_chosen_as_deadlock_victim
+		&& (!(m_trx->in_innodb & TRX_FORCE_ROLLBACK_ASYNC))))
+	{
 
-	/* m_trx->mysql_thd is NULL if it's an internal trx. So current_thd is used */
-	if (err == DB_LOCK_WAIT) {
-		thd_report_row_lock_wait(current_thd, wait_for->trx->mysql_thd);
+		ut_ad(err == DB_DEADLOCK || err == DB_LOCK_WAIT
+		      || err == DB_SUCCESS_LOCKED_REC);
+		update_dep_size(lock, lock_rec_find_set_bit(lock));
+
+		if (err == DB_LOCK_WAIT) {
+
+			/* m_trx->mysql_thd is NULL if it's an internal trx. So
+			current_thd is used */
+			thd_report_row_lock_wait(current_thd,
+						 wait_for->trx->mysql_thd);
+		}
 	}
+
 	return(err);
 }
 
@@ -2037,7 +2055,7 @@ lock_rec_add_to_queue(
 		if (lock != NULL) {
 
             lock_rec_set_nth_bit(lock, heap_no);
-            update_dep_size(lock, heap_no, false);
+            update_dep_size(lock, heap_no);
 
 			return;
 		}
@@ -2121,7 +2139,7 @@ lock_rec_lock_fast(
 			if (!lock_rec_get_nth_bit(lock, heap_no)) {
 				lock_rec_set_nth_bit(lock, heap_no);
                 status = LOCK_REC_SUCCESS_CREATED;
-                update_dep_size(lock, heap_no, false);
+                update_dep_size(lock, heap_no);
 			}
 		}
 
