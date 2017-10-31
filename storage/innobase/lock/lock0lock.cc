@@ -2355,17 +2355,13 @@ static
 void
 lock_grant(
 /*=======*/
-	lock_t*	lock,	/*!< in/out: waiting lock request */
-    bool    owns_trx_mutex)    /*!< in: whether lock->trx->mutex is owned */
+	lock_t*	lock)	/*!< in/out: waiting lock request */
 {
-    ut_ad(lock_mutex_own());
-    ut_ad(trx_mutex_own(lock->trx) == owns_trx_mutex);
+	ut_ad(lock_mutex_own());
 
 	lock_reset_lock_and_trx_wait(lock);
 
-    if (!owns_trx_mutex) {
-        trx_mutex_enter(lock->trx);
-    }
+	trx_mutex_enter(lock->trx);
 
 	if (lock_get_mode(lock) == LOCK_AUTO_INC) {
 		dict_table_t*	table = lock->un_member.tab_lock.table;
@@ -2397,10 +2393,8 @@ lock_grant(
 			lock_wait_release_thread_if_suspended(thr);
 		}
 	}
-    
-    if (!owns_trx_mutex) {
-        trx_mutex_exit(lock->trx);
-    }
+
+	trx_mutex_exit(lock->trx);
 }
 
 /**
@@ -2738,7 +2732,7 @@ vats_grant(
 			ut_ad(lock->trx->error_state != DB_DEADLOCK);
 			ut_ad(!lock->trx->lock.was_chosen_as_deadlock_victim);
 
-			lock_grant(lock, false);
+			lock_grant(lock);
 			HASH_DELETE(lock_t, hash, lock_hash,
 						rec_fold, lock);
 			lock_rec_insert_to_head(lock_hash, lock, rec_fold);
@@ -2852,7 +2846,7 @@ lock_rec_dequeue_from_page(
 
 				/* Grant the lock */
 				ut_ad(lock->trx != in_lock->trx);
-				lock_grant(lock, false);
+				lock_grant(lock);
 			}
 		}
     } else {
@@ -2889,6 +2883,7 @@ lock_rec_discard(
 	ut_ad(in_lock->index->table->n_rec_locks > 0);
 	in_lock->index->table->n_rec_locks--;
 
+	// TODO VATS: update_dep_size or vats_grant-like code?
 	HASH_DELETE(lock_t, hash, lock_hash_get(in_lock->type_mode),
 			    lock_rec_fold(space, page_no), in_lock);
 
@@ -4513,7 +4508,7 @@ lock_table_dequeue(
 
 			/* Grant the lock */
 			ut_ad(in_lock->trx != lock->trx);
-			lock_grant(lock, false);
+			lock_grant(lock);
 		}
 	}
 }
@@ -4668,7 +4663,7 @@ released:
 
 				/* Grant the lock */
 				ut_ad(trx != lock->trx);
-				lock_grant(lock, false);
+				lock_grant(lock);
 			}
 		}
 	} else {
