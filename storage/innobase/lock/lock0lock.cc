@@ -1608,12 +1608,17 @@ update_dep_size(
 	} else {
 		trx->dep_size += size_delta;
 	}
+
 	wait_lock = trx->lock.wait_lock;
-	// TODO ut_ad(trx->state == TRX_STATE_ACTIVE);
-	if (trx->state != TRX_STATE_ACTIVE || wait_lock == NULL) {
+	ut_ad(trx->state == TRX_STATE_ACTIVE
+	      || trx->state == TRX_STATE_PREPARED);
+
+	if (wait_lock == NULL) {
 
 		return;
 	}
+
+	ut_ad(trx->state == TRX_STATE_ACTIVE);
 
 	space = wait_lock->un_member.rec_lock.space;
 	page_no = wait_lock->un_member.rec_lock.page_no;
@@ -1636,6 +1641,8 @@ update_dep_size(
 	ulint   heap_no)
 {
 	ut_ad(lock_mutex_own());
+	ut_ad(in_lock->trx->state == TRX_STATE_ACTIVE
+	      || in_lock->trx->state == TRX_STATE_PREPARED);
 	// TODO: rollback might still call this legitimately through RecLock::lock_add
 	ut_ad(!in_lock->trx->lock.was_chosen_as_deadlock_victim);
 
@@ -1656,6 +1663,9 @@ update_dep_size(
 	lock_hash = lock_hash_get(in_lock->type_mode);
 
 	if (in_lock->is_waiting()) {
+
+		ut_ad(in_lock->trx->state == TRX_STATE_ACTIVE);
+
 		for (lock = lock_rec_get_first(lock_hash, space, page_no, heap_no);
 			 lock != NULL;
 			 lock = lock_rec_get_next(heap_no, lock)) {
