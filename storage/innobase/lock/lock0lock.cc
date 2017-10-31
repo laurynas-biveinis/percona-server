@@ -2665,24 +2665,29 @@ lock_rec_cancel(
 }
 
 /*********************************************************************//**
-Checks if a waiting record lock request still has to for granted locks.
-@return	lock that is causing the wait */
+Checks if a waiting record lock request still has to wait for granted locks.
+@return	whether exists a granted lock that the waiting lock must wait for */
 static
-const lock_t*
+bool
 lock_rec_has_to_wait_granted(
 /*==========================*/
-	const lock_t*	wait_lock,	/*!< in: waiting record lock */
-    std::vector<lock_t *>   &granted_locks)  /*!< in: granted record lock */
+	const lock_t&	wait_lock,	/*!< in: waiting record lock */
+	const std::vector<lock_t *>&   granted_locks)  /*!< in: granted record lock */
 {
-	ulint   i;
-	lock_t *lock;
-	for (i = 0; i < granted_locks.size(); ++i) {
-		lock = granted_locks[i];
-		if (lock_has_to_wait(wait_lock, lock)) {
-			return lock;
+	ut_ad(lock_mutex_own());
+	ut_ad(wait_lock.trx->error_state != DB_DEADLOCK);
+	ut_ad(!wait_lock.trx->lock.was_chosen_as_deadlock_victim);
+
+	for (std::vector<lock_t *>::size_type i = 0; i < granted_locks.size();
+	     ++i) {
+
+		const lock_t *lock = granted_locks[i];
+		if (lock_has_to_wait(&wait_lock, lock)) {
+
+			return true;
 		}
 	}
-	return NULL;
+	return false;
 }
 
 static
@@ -2725,8 +2730,10 @@ vats_grant(
 	long	sub_dep_size_total	= 0;
 	for (i = 0; i < wait_locks.size(); ++i) {
 		lock = wait_locks[i].first;
-		if (!lock_rec_has_to_wait_granted(lock, granted_locks)
-			&& !lock_rec_has_to_wait_granted(lock, new_granted)) {
+		if (lock->trx->error_state != DB_DEADLOCK
+		    && !lock->trx->lock.was_chosen_as_deadlock_victim
+		    && !lock_rec_has_to_wait_granted(*lock, granted_locks)
+		    && !lock_rec_has_to_wait_granted(*lock, new_granted)) {
 
 			ut_ad(lock->trx->error_state != DB_DEADLOCK);
 			ut_ad(!lock->trx->lock.was_chosen_as_deadlock_victim);
