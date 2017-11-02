@@ -2830,10 +2830,10 @@ lock_rec_dequeue_from_page(
 	MONITOR_INC(MONITOR_RECLOCK_REMOVED);
 	MONITOR_DEC(MONITOR_NUM_RECLOCK);
 
+	/* Check if waiting locks in the queue can now be granted */
 	if (!use_vats(in_lock->trx)) {
 
-		/* Check if waiting locks in the queue can now be granted:
-		grant locks if there are no conflicting locks ahead. Stop at
+		/* Grant locks if there are no conflicting locks ahead. Stop at
 		the first X lock that is waiting or has been granted. */
 
 		for (lock = lock_rec_get_first_on_page_addr(lock_hash, space,
@@ -4592,6 +4592,7 @@ run_again:
 }
 
 /*=========================== LOCK RELEASE ==============================*/
+
 /*************************************************************//**
 Removes a granted record lock of a transaction from the queue and grants
 locks to other transactions waiting in the queue if they now are entitled
@@ -4652,9 +4653,9 @@ released:
 	ut_a(!lock_get_wait(lock));
 	lock_rec_reset_nth_bit(lock, heap_no);
 
-	if (!use_vats(trx)) {
+	/* Check if we can now grant waiting lock requests */
 
-		/* Check if we can now grant waiting lock requests */
+	if (!use_vats(trx)) {
 
 		for (lock = first_lock; lock != NULL;
 			 lock = lock_rec_get_next(heap_no, lock)) {
@@ -5873,9 +5874,8 @@ lock_rec_queue_validate(
 		} else if (lock_get_wait(lock) && !lock_rec_get_gap(lock)) {
 
 			ut_a(lock_rec_has_to_wait_in_queue(lock));
-
 		}
-    }
+	}
 
 func_exit:
 	if (!locked_lock_trx_sys) {
@@ -7595,6 +7595,7 @@ DeadlockChecker::get_first_lock(ulint* heap_no) const
 		if (!lock_rec_get_nth_bit(lock, *heap_no)) {
 			lock = lock_rec_get_next_const(*heap_no, lock);
 		}
+
 		ut_a(!lock_get_wait(lock));
 	} else {
 		/* Table locks don't care about the heap_no. */
