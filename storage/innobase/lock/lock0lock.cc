@@ -1611,7 +1611,8 @@ update_dep_size(
 
 	wait_lock = trx->lock.wait_lock;
 	ut_ad(trx->state == TRX_STATE_ACTIVE
-	      || trx->state == TRX_STATE_PREPARED);
+	      || trx->state == TRX_STATE_PREPARED
+	      || trx->state == TRX_STATE_COMMITTED_IN_MEMORY);
 
 	if (wait_lock == NULL) {
 
