@@ -1535,12 +1535,18 @@ has_higher_priority(
 
 static
 bool
-use_vats(
-    trx_t *trx)
+is_vats_enabled(void)
 {
-    return innodb_lock_schedule_algorithm ==
-		   INNODB_LOCK_SCHEDULE_ALGORITHM_VATS
-		&& !thd_is_replication_slave_thread(trx->mysql_thd);
+	return innodb_lock_schedule_algorithm
+		== INNODB_LOCK_SCHEDULE_ALGORITHM_VATS;
+}
+
+static
+bool
+use_vats(const trx_t &trx)
+{
+	return is_vats_enabled()
+		&& !thd_is_replication_slave_thread(trx.mysql_thd);
 }
 
 static
@@ -1598,7 +1604,8 @@ update_dep_size(
 	lock_t *wait_lock;
 	hash_table_t *lock_hash;
 
-	if (!use_vats(trx) || trx->size_updated == lock_sys->dep_size_updated
+	if (!is_vats_enabled()
+	    || trx->size_updated == lock_sys->dep_size_updated
 	    || size_delta == 0) {
 		return;
 	}
@@ -1657,7 +1664,7 @@ update_dep_size(
 	long    total_size_delta;
 	hash_table_t *lock_hash;
 
-	if (!use_vats(in_lock->trx)) {
+	if (!is_vats_enabled()) {
 		return;
 	}
 
@@ -1711,7 +1718,7 @@ RecLock::lock_add(lock_t* lock, bool add_to_hash)
 
         ++lock->index->table->n_rec_locks;
 
-		if (use_vats(lock->trx) && !wait) {
+		if (use_vats(*lock->trx) && !wait) {
 			lock_rec_insert_to_head(lock_hash, lock, key);
 		} else {
 			HASH_INSERT(lock_t, hash, lock_hash, key, lock);
@@ -2836,7 +2843,7 @@ lock_rec_dequeue_from_page(
 	MONITOR_DEC(MONITOR_NUM_RECLOCK);
 
 	/* Check if waiting locks in the queue can now be granted */
-	if (!use_vats(in_lock->trx)) {
+	if (!use_vats(*in_lock->trx)) {
 
 		/* Grant locks if there are no conflicting locks ahead. Stop at
 		the first X lock that is waiting or has been granted. */
@@ -4660,7 +4667,7 @@ released:
 
 	/* Check if we can now grant waiting lock requests */
 
-	if (!use_vats(trx)) {
+	if (!use_vats(*trx)) {
 
 		for (lock = first_lock; lock != NULL;
 			 lock = lock_rec_get_next(heap_no, lock)) {
@@ -7613,7 +7620,7 @@ DeadlockChecker::get_first_lock(ulint* heap_no) const
 	/* Must find at least two locks, otherwise there cannot be a
 	waiting lock, secondly the first lock cannot be the wait_lock. */
 	ut_a(lock != NULL);
-	ut_a(lock != m_wait_lock || use_vats(lock->trx));
+	ut_a(lock != m_wait_lock || use_vats(*lock->trx));
 
 	/* Check that the lock type doesn't change. */
 	ut_ad(lock_get_type_low(lock) == lock_get_type_low(m_wait_lock));
