@@ -1499,32 +1499,28 @@ RecLock::lock_alloc(
 	return(lock);
 }
 
-/*********************************************************************//**
-Check if lock1 has higher priority than lock2.
-NULL has lowest priority.
-If both are high priority transactions, the FIFO order is preserved.
-If either is a high priority transaction, it has higher priority.
-Otherwise, the one with an older transaction has higher priority.
-@returns true if lock1 has higher priority, false otherwise. */
+/** Check if lock1 has higher priority than lock2. If one of the locks belongs
+to a high-priority transaction, it has a higher priority, otherwise transaction
+dependency sizes are compared.
+@param	lock1_seq	the first lock
+@param	lock2_seq	the second lock
+@return true if lock1 has higher priority, false otherwise. */
 static
 bool
 has_higher_priority(
 	const lock_seq_t &lock1_seq,
 	const lock_seq_t &lock2_seq)
 {
-	if (trx_is_high_priority(lock1_seq.first->trx)
-	    && trx_is_high_priority(lock2_seq.first->trx)) {
+	const bool t1_high_prio = trx_is_high_priority(lock1_seq.first->trx);
+	const bool t2_high_prio = trx_is_high_priority(lock2_seq.first->trx);
 
-		return lock1_seq.second < lock2_seq.second;
-	}
-	if (trx_is_high_priority(lock1_seq.first->trx)) {
-
+	if (t1_high_prio && !t2_high_prio)
 		return true;
-	}
-	if (trx_is_high_priority(lock2_seq.first->trx)) {
 
+	if (!t1_high_prio && t2_high_prio)
 		return false;
-	}
+
+	ut_ad(t1_high_prio && t2_high_prio || !t1_high_prio && !t2_high_prio);
 
 	return lock1_seq.first->trx->dep_size > lock2_seq.first->trx->dep_size;
 }
