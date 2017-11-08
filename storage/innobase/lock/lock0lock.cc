@@ -1501,7 +1501,8 @@ RecLock::lock_alloc(
 
 /** Check if lock1 has higher priority than lock2. If one of the locks belongs
 to a high-priority transaction, it has a higher priority, otherwise transaction
-dependency sizes are compared.
+dependency sizes are compared. If they are equal, the original lock order is
+used.
 @param	lock1_seq	the first lock
 @param	lock2_seq	the second lock
 @return true if lock1 has higher priority, false otherwise. */
@@ -1522,7 +1523,14 @@ has_higher_priority(
 
 	ut_ad(t1_high_prio && t2_high_prio || !t1_high_prio && !t2_high_prio);
 
-	return lock1_seq.first->trx->dep_size > lock2_seq.first->trx->dep_size;
+	if (lock1_seq.first->trx->dep_size != lock2_seq.first->trx->dep_size)
+	{
+
+		return lock1_seq.first->trx->dep_size
+			> lock2_seq.first->trx->dep_size;
+	}
+
+	return lock1_seq.second < lock2_seq.second;
 }
 
 static
