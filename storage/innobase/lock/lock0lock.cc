@@ -4863,6 +4863,9 @@ lock_remove_all_on_table_for_trx(
 {
 	lock_t*		lock;
 	lock_t*		prev_lock;
+#ifdef UNIV_DEBUG
+	unsigned long	rec_locks_removed = 0;
+#endif
 
 	ut_ad(lock_mutex_own());
 
@@ -4877,6 +4880,7 @@ lock_remove_all_on_table_for_trx(
 			ut_a(!lock_get_wait(lock));
 
 			lock_rec_discard(lock);
+			ut_d(rec_locks_removed++;);
 		} else if (lock_get_type_low(lock) & LOCK_TABLE
 			   && lock->un_member.tab_lock.table == table
 			   && (remove_also_table_sx_locks
@@ -4888,6 +4892,27 @@ lock_remove_all_on_table_for_trx(
 			lock_table_remove_low(lock);
 		}
 	}
+
+#ifdef UNIV_DEBUG
+	if (rec_locks_removed > 0) {
+
+		for (lock = UT_LIST_GET_LAST(trx->lock.trx_locks);
+		     lock != NULL;
+		     lock = prev_lock) {
+
+			prev_lock = UT_LIST_GET_PREV(trx_locks, lock);
+			if (lock_get_type_low(lock) != LOCK_REC)
+				continue;
+
+			// If this ever fires in the future due to
+			// administrative statements not implicitly committing
+			// anymore or similar, add code to iterate through
+			// remaining record locks and update their transaction
+			// weights.
+			ut_error;
+		}
+	}
+#endif
 }
 
 /*******************************************************************//**
