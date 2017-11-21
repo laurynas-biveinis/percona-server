@@ -2895,7 +2895,6 @@ lock_rec_discard(
 	ut_ad(in_lock->index->table->n_rec_locks > 0);
 	in_lock->index->table->n_rec_locks--;
 
-	// TODO VATS: update_dep_size or vats_grant-like code?
 	HASH_DELETE(lock_t, hash, lock_hash_get(in_lock->type_mode),
 			    lock_rec_fold(space, page_no), in_lock);
 
@@ -4847,6 +4846,33 @@ lock_trx_table_locks_remove(
 	ut_error;
 }
 
+#ifdef UNIV_DEBUG
+/** Assert that a transaction does not have any record locks
+@param[in]	trx	transaction to check */
+static
+void
+lock_assert_no_rec_locks_in_trx(const trx_t& trx)
+{
+	lock_t*	prev_lock;
+
+	for (lock_t *lock = UT_LIST_GET_LAST(trx.lock.trx_locks);
+	     lock != NULL;
+	     lock = prev_lock) {
+
+		prev_lock = UT_LIST_GET_PREV(trx_locks, lock);
+		if (lock_get_type_low(lock) != LOCK_REC)
+			continue;
+
+		// If this ever fires in the future due to
+		// administrative statements not implicitly committing
+		// anymore or similar, add code to iterate through
+		// remaining record locks and update their transaction
+		// weights.
+		ut_error;
+	}
+}
+#endif
+
 /*********************************************************************//**
 Removes locks of a transaction on a table to be dropped.
 If remove_also_table_sx_locks is TRUE then table-level S and X locks are
@@ -4896,21 +4922,7 @@ lock_remove_all_on_table_for_trx(
 #ifdef UNIV_DEBUG
 	if (rec_locks_removed > 0) {
 
-		for (lock = UT_LIST_GET_LAST(trx->lock.trx_locks);
-		     lock != NULL;
-		     lock = prev_lock) {
-
-			prev_lock = UT_LIST_GET_PREV(trx_locks, lock);
-			if (lock_get_type_low(lock) != LOCK_REC)
-				continue;
-
-			// If this ever fires in the future due to
-			// administrative statements not implicitly committing
-			// anymore or similar, add code to iterate through
-			// remaining record locks and update their transaction
-			// weights.
-			ut_error;
-		}
+		lock_assert_no_rec_locks_in_trx(*trx);
 	}
 #endif
 }
@@ -4950,6 +4962,10 @@ lock_remove_recovered_trx_record_locks(
 
 		lock_t*	next_lock;
 
+#ifdef UNIV_DEBUG
+		unsigned long	rec_locks_removed = 0;
+#endif
+
 		for (lock_t* lock = UT_LIST_GET_FIRST(trx->lock.trx_locks);
 		     lock != NULL;
 		     lock = next_lock) {
@@ -4974,9 +4990,17 @@ lock_remove_recovered_trx_record_locks(
 			case LOCK_REC:
 				if (lock->index->table == table) {
 					lock_rec_discard(lock);
+					ut_d(rec_locks_removed++;);
 				}
 			}
 		}
+
+#ifdef UNIV_DEBUG
+		if (rec_locks_removed > 0) {
+
+			lock_assert_no_rec_locks_in_trx(*trx);
+		}
+#endif
 
 		++n_recovered_trx;
 	}
