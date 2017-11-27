@@ -1,0 +1,25 @@
+#
+# Debug build-only tests for innodb_lock_schedule_algorithm=vats_strict
+#
+--source include/have_debug.inc
+--source include/have_innodb.inc
+
+--echo # Test that vats_strict is inaccessible on a server started with a different value
+SELECT @@innodb_lock_schedule_algorithm;
+--error ER_WRONG_VALUE_FOR_VAR
+SET GLOBAL innodb_lock_schedule_algorithm=vats_strict;
+
+--echo # Test that server started with vats_strict cannot switch to a different value
+--let $restart_parameters=restart:--innodb-lock-schedule-algorithm=vats_strict
+--source include/restart_mysqld.inc
+
+SELECT @@innodb_lock_schedule_algorithm;
+--error ER_WRONG_VALUE_FOR_VAR
+SET GLOBAL innodb_lock_schedule_algorithm=vats;
+--error ER_WRONG_VALUE_FOR_VAR
+SET GLOBAL innodb_lock_schedule_algorithm=fcfs;
+
+# No-op change from vats_strict to vats_strict is still allowed
+SET GLOBAL innodb_lock_schedule_algorithm=vats_strict;
+
+# MTR will restart the server with default args for us

@@ -52,6 +52,10 @@ enum innodb_lock_schedule_algorithm_t {
     INNODB_LOCK_SCHEDULE_ALGORITHM_FCFS,
     /*!< Variance-Aware-Transaction-Scheduling */
     INNODB_LOCK_SCHEDULE_ALGORITHM_VATS
+#ifdef UNIV_DEBUG
+    /*!< VATS, but set at startup and not allowed to change */
+    , INNODB_LOCK_SCHEDULE_ALGORITHM_VATS_STRICT
+#endif
 };
 
 extern ulong innodb_lock_schedule_algorithm;

@@ -336,6 +336,9 @@ static TYPELIB innodb_default_row_format_typelib = {
 static const char* innodb_lock_schedule_algorithm_names[] = {
 	"fcfs",
 	"vats",
+#ifdef UNIV_DEBUG
+	"vats_strict",
+#endif
 	NullS
 };
 
@@ -20583,6 +20586,33 @@ innodb_srv_empty_free_list_algorithm_validate(
 	return(0);
 }
 
+/** Validate innodb_lock_schedule_algorithm change */
+static
+int
+innodb_lock_schedule_algorithm_validate(
+	THD* thd,
+	struct st_mysql_sys_var*	var,
+	void*				save,
+	struct st_mysql_value*		value)
+{
+#ifdef UNIV_DEBUG
+	char	buf[STRING_BUFFER_USUAL_SIZE];
+	int	buf_len = sizeof(buf);
+	const char* new_alg_name = value->val_str(value, buf, &buf_len);
+
+	const bool current_alg_vats_strict
+		= (innodb_lock_schedule_algorithm
+		   == INNODB_LOCK_SCHEDULE_ALGORITHM_VATS_STRICT);
+	const bool new_alg_vats_strict
+		= !innobase_strcasecmp(new_alg_name, "vats_strict");
+
+	return current_alg_vats_strict != new_alg_vats_strict;
+#else
+	return 0;
+#endif
+}
+
+
 /** Update the innodb_log_checksums parameter.
 @param[in]	thd	thread handle
 @param[in]	var	system variable
@@ -21107,8 +21137,12 @@ static MYSQL_SYSVAR_ENUM(lock_schedule_algorithm, innodb_lock_schedule_algorithm
   " grant the locks in First-Come-First-Served order;"
   " VATS"
   " use the Variance-Aware-Transaction-Scheduling algorithm, which"
-  " uses an Eldest-Transaction-First heuristic.",
-  NULL, NULL, INNODB_LOCK_SCHEDULE_ALGORITHM_VATS,
+  " uses an Eldest-Transaction-First heuristic;"
+  " VATS_STRICT"
+  " for debug builds only, same as VATS, but forbidden to change to or from"
+  " dynamically. Enables extra checks.",
+  innodb_lock_schedule_algorithm_validate, NULL,
+  INNODB_LOCK_SCHEDULE_ALGORITHM_VATS,
   &innodb_lock_schedule_algorithm_typelib);
 
 static MYSQL_SYSVAR_ULONG(buffer_pool_instances, srv_buf_pool_instances,

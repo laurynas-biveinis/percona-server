@@ -1,0 +1,16 @@
+# Test that vats_strict is inaccessible on a server started with a different value
+SELECT @@innodb_lock_schedule_algorithm;
+@@innodb_lock_schedule_algorithm
+vats
+SET GLOBAL innodb_lock_schedule_algorithm=vats_strict;
+ERROR 42000: Variable 'innodb_lock_schedule_algorithm' can't be set to the value of 'vats_strict'
+# Test that server started with vats_strict cannot switch to a different value
+# restart:--innodb-lock-schedule-algorithm=vats_strict
+SELECT @@innodb_lock_schedule_algorithm;
+@@innodb_lock_schedule_algorithm
+vats_strict
+SET GLOBAL innodb_lock_schedule_algorithm=vats;
+ERROR 42000: Variable 'innodb_lock_schedule_algorithm' can't be set to the value of 'vats'
+SET GLOBAL innodb_lock_schedule_algorithm=fcfs;
+ERROR 42000: Variable 'innodb_lock_schedule_algorithm' can't be set to the value of 'fcfs'
+SET GLOBAL innodb_lock_schedule_algorithm=vats_strict;

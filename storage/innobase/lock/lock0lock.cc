@@ -1538,7 +1538,12 @@ bool
 is_vats_enabled(void)
 {
 	return innodb_lock_schedule_algorithm
-		== INNODB_LOCK_SCHEDULE_ALGORITHM_VATS;
+		== INNODB_LOCK_SCHEDULE_ALGORITHM_VATS
+#ifdef UNIV_DEBUG
+		|| (innodb_lock_schedule_algorithm
+		    == INNODB_LOCK_SCHEDULE_ALGORITHM_VATS_STRICT)
+#endif
+		;
 }
 
 static
@@ -1613,7 +1618,13 @@ update_dep_size(
 	ut_ad(trx->size_updated < lock_sys->dep_size_updated);
 	trx->size_updated = lock_sys->dep_size_updated;
 
-	// TODO: remove this clamping by zero
+#ifdef UNIV_DEBUG
+	if (innodb_lock_schedule_algorithm
+	    == INNODB_LOCK_SCHEDULE_ALGORITHM_VATS_STRICT) {
+
+		ut_ad(static_cast<long>(trx->dep_size) + size_delta >= 0);
+	}
+#endif
 	if (static_cast<long>(trx->dep_size) + size_delta < 0) {
 		trx->dep_size = 0;
 	} else {
