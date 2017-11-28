@@ -1602,18 +1602,27 @@ update_dep_size(
 {
 	ut_ad(lock_mutex_own());
 
+	/* Do not update weight if VATS is disabled, we have already updated
+	weight for this transaction in the current graph traversal, if there is
+	nothing to update, or if transaction is already prepared/committed,
+	thus its weight needs not to be maintained anymore. */
+	if (!is_vats_enabled()
+	    || trx->size_updated == lock_sys->dep_size_updated
+	    || size_delta == 0
+	    || trx->state == TRX_STATE_PREPARED
+	    || trx->state == TRX_STATE_COMMITTED_IN_MEMORY) {
+
+		return;
+	}
+
+	ut_ad(trx->state == TRX_STATE_ACTIVE);
+
 	ulint   space;
 	ulint   page_no;
 	ulint   heap_no;
 	lock_t *lock;
 	lock_t *wait_lock;
 	hash_table_t *lock_hash;
-
-	if (!is_vats_enabled()
-	    || trx->size_updated == lock_sys->dep_size_updated
-	    || size_delta == 0) {
-		return;
-	}
 
 	ut_ad(trx->size_updated < lock_sys->dep_size_updated);
 	trx->size_updated = lock_sys->dep_size_updated;
@@ -1632,16 +1641,10 @@ update_dep_size(
 	}
 
 	wait_lock = trx->lock.wait_lock;
-	ut_ad(trx->state == TRX_STATE_ACTIVE
-	      || trx->state == TRX_STATE_PREPARED
-	      || trx->state == TRX_STATE_COMMITTED_IN_MEMORY);
-
 	if (wait_lock == NULL) {
 
 		return;
 	}
-
-	ut_ad(trx->state == TRX_STATE_ACTIVE);
 
 	space = wait_lock->un_member.rec_lock.space;
 	page_no = wait_lock->un_member.rec_lock.page_no;
