@@ -23,17 +23,25 @@
 #include "mysql/psi/mysql_memory.h"
 #include "sql/sql_class.h"                      // THD, SYSTEM_THREAD_SLAVE_*
 #include "template_utils.h"
+#include "rpl_rli.h" // THD::rli_slave::rows_query_ev
 
 using std::string;
 using std::unique_ptr;
 
 static PSI_memory_key bh_key_memory_blackhole_share;
 
-static bool is_slave_applier(THD *thd)
+static inline bool is_slave_applier(const THD &thd)
 {
-  return thd->system_thread == SYSTEM_THREAD_SLAVE_SQL ||
-    thd->system_thread == SYSTEM_THREAD_SLAVE_WORKER;
+  return thd.system_thread == SYSTEM_THREAD_SLAVE_SQL ||
+    thd.system_thread == SYSTEM_THREAD_SLAVE_WORKER;
 }
+
+static inline bool pretend_for_slave(const THD &thd)
+{
+  return is_slave_applier(thd) &&
+    (thd.rli_slave->rows_query_ev || thd.query().str == NULL);
+}
+
 
 /* Static declarations for handlerton */
 
@@ -111,7 +119,7 @@ int ha_blackhole::update_row(const uchar*, uchar*)
 {
   DBUG_ENTER("ha_blackhole::update_row");
   THD *thd= ha_thd();
-  if (is_slave_applier(thd) && thd->query().str == NULL)
+  if (pretend_for_slave(*thd))
     DBUG_RETURN(0);
   DBUG_RETURN(HA_ERR_WRONG_COMMAND);
 }
@@ -120,7 +128,7 @@ int ha_blackhole::delete_row(const uchar*)
 {
   DBUG_ENTER("ha_blackhole::delete_row");
   THD *thd= ha_thd();
-  if (is_slave_applier(thd) && thd->query().str == NULL)
+  if (pretend_for_slave(*thd))
     DBUG_RETURN(0);
   DBUG_RETURN(HA_ERR_WRONG_COMMAND);
 }
@@ -137,7 +145,7 @@ int ha_blackhole::rnd_next(uchar*)
   int rc;
   DBUG_ENTER("ha_blackhole::rnd_next");
   THD *thd= ha_thd();
-  if (is_slave_applier(thd) && thd->query().str == NULL)
+  if (pretend_for_slave(*thd))
     rc= 0;
   else
     rc= HA_ERR_END_OF_FILE;
@@ -220,7 +228,7 @@ int ha_blackhole::index_read_map(uchar*, const uchar*, key_part_map,
   int rc;
   DBUG_ENTER("ha_blackhole::index_read");
   THD *thd= ha_thd();
-  if (is_slave_applier(thd) && thd->query().str == NULL)
+  if (pretend_for_slave(*thd))
     rc= 0;
   else
     rc= HA_ERR_END_OF_FILE;
@@ -234,7 +242,7 @@ int ha_blackhole::index_read_idx_map(uchar*, uint, const uchar*, key_part_map,
   int rc;
   DBUG_ENTER("ha_blackhole::index_read_idx");
   THD *thd= ha_thd();
-  if (is_slave_applier(thd) && thd->query().str == NULL)
+  if (pretend_for_slave(*thd))
     rc= 0;
   else
     rc= HA_ERR_END_OF_FILE;
@@ -247,7 +255,7 @@ int ha_blackhole::index_read_last_map(uchar*, const uchar*, key_part_map)
   int rc;
   DBUG_ENTER("ha_blackhole::index_read_last");
   THD *thd= ha_thd();
-  if (is_slave_applier(thd) && thd->query().str == NULL)
+  if (pretend_for_slave(*thd))
     rc= 0;
   else
     rc= HA_ERR_END_OF_FILE;
