@@ -1,19 +1,8 @@
-.. _myrocks_variables:
-
-=================
-MyRocks Variables
-=================
-
-MyRocks provides variables to tune performance
-and manage the behavior of the storage engine.
-
-.. contents::
-   :local:
-
 .. _myrocks_server_variables:
 
+========================
 MyRocks Server Variables
-------------------------
+========================
 
 The MyRocks server variables expose configuration
 of the underlying RocksDB engine.
@@ -91,6 +80,10 @@ Also, all variables can exist in one or both of the following scopes:
      - Yes
      - Yes
      - Global, Session
+   * - :variable:`rocksdb_bulk_load_allow_unsorted`
+     - Yes
+     - Yes
+     - Global, Session
    * - :variable:`rocksdb_bulk_load_size`
      - Yes
      - Yes
@@ -139,6 +132,10 @@ Also, all variables can exist in one or both of the following scopes:
      - Yes
      - Yes
      - Global
+   * - :variable:`rocksdb_concurrent_prepare`
+     - Yes
+     - No
+     - Global
    * - :variable:`rocksdb_create_checkpoint`
      - Yes
      - Yes
@@ -163,10 +160,30 @@ Also, all variables can exist in one or both of the following scopes:
      - Yes
      - Yes
      - Global, Session
+   * - :variable:`rocksdb_deadlock_detect_depth`
+     - Yes
+     - Yes
+     - Global, Session
    * - :variable:`rocksdb_debug_optimizer_no_zero_cardinality`
      - Yes
      - Yes
      - Global, Session
+   * - :variable:`rocksdb_debug_ttl_ignore_pk`
+     - Yes
+     - Yes
+     - Global
+   * - :variable:`rocksdb_debug_ttl_read_filter_ts`
+     - Yes
+     - Yes
+     - Global
+   * - :variable:`rocksdb_debug_ttl_rec_ts`
+     - Yes
+     - Yes
+     - Global
+   * - :variable:`rocksdb_debug_ttl_snapshot_ts`
+     - Yes
+     - Yes
+     - Global
    * - :variable:`rocksdb_default_cf_options`
      - Yes
      - No
@@ -186,6 +203,10 @@ Also, all variables can exist in one or both of the following scopes:
    * - :variable:`rocksdb_enable_ttl`
      - Yes
      - No
+     - Global
+   * - :variable:`rocksdb_enable_ttl_read_filtering`
+     - Yes
+     - Yes
      - Global
    * - :variable:`rocksdb_enable_thread_tracking`
      - Yes
@@ -211,6 +232,10 @@ Also, all variables can exist in one or both of the following scopes:
      - Yes
      - Yes
      - Global
+   * - :variable:`rocksdb_force_compute_memtable_stats_cachetime`
+     - Yes
+     - Yes
+     - Global
    * - :variable:`rocksdb_force_flush_memtable_and_lzero_now`
      - Yes
      - Yes
@@ -224,6 +249,10 @@ Also, all variables can exist in one or both of the following scopes:
      - Yes
      - Global, Session
    * - :variable:`rocksdb_hash_index_allow_collision`
+     - Yes
+     - No
+     - Global
+   * - :variable:`rocksdb_ignore_unknown_options`
      - Yes
      - No
      - Global
@@ -243,6 +272,10 @@ Also, all variables can exist in one or both of the following scopes:
      - Yes
      - No
      - Global
+   * - :variable:`rocksdb_large_prefix`
+     - Yes
+     - Yes
+     - Global
    * - :variable:`rocksdb_lock_scanned_rows`
      - Yes
      - Yes
@@ -259,6 +292,10 @@ Also, all variables can exist in one or both of the following scopes:
      - Yes
      - No
      - Global
+   * - :variable:`rocksdb_manual_wal_flush`
+     - Yes
+     - No
+     - Global
    * - :variable:`rocksdb_max_background_compactions`
      - Yes
      - Yes
@@ -266,6 +303,14 @@ Also, all variables can exist in one or both of the following scopes:
    * - :variable:`rocksdb_max_background_flushes`
      - Yes
      - No
+     - Global
+   * - :variable:`rocksdb_max_background_jobs`
+     - Yes
+     - Yes
+     - Global
+   * - :variable:`rocksdb_max_latest_deadlocks`
+     - Yes
+     - Yes
      - Global
    * - :variable:`rocksdb_max_log_file_size`
      - Yes
@@ -296,6 +341,10 @@ Also, all variables can exist in one or both of the following scopes:
      - Yes
      - Global, Session
    * - :variable:`rocksdb_merge_combine_read_size`
+     - Yes
+     - Yes
+     - Global, Session
+   * - :variable:`rocksdb_merge_tmp_file_removal_delay_ms`
      - Yes
      - Yes
      - Global, Session
@@ -364,6 +413,10 @@ Also, all variables can exist in one or both of the following scopes:
      - Yes
      - Global
    * - :variable:`rocksdb_signal_drop_index_thread`
+     - Yes
+     - Yes
+     - Global
+   * - :variable:`rocksdb_sim_cache_size`
      - Yes
      - Yes
      - Global
@@ -467,6 +520,10 @@ Also, all variables can exist in one or both of the following scopes:
      - Yes
      - No
      - Global
+   * - :variable:`rocksdb_write_batch_max_bytes`
+     - Yes
+     - Yes
+     - Global, Session
    * - :variable:`rocksdb_write_disable_wal`
      - Yes
      - Yes
@@ -551,6 +608,7 @@ Disabled by default.
 .. variable:: rocksdb_base_background_compactions
 
   :version 5.7.19-17: Implemented
+  :version 5.7.20-18: Replaced by :variable:`rocksdb_max_background_jobs`
   :cli: ``--rocksdb-base-background-compactions``
   :dyn: No
   :scope: Global
@@ -562,7 +620,9 @@ submitted to the default LOW priority thread pool in RocksDB.
 Default is ``1``.
 Allowed range of values is from ``-1`` to ``64``.
 Maximum depends on the :variable:`rocksdb_max_background_compactions`
-variable.
+variable. This variable has been replaced in |Percona Server| :rn:`5.7.20-18`
+by :variable:`rocksdb_max_background_jobs`, which automatically decides how
+many threads to allocate towards flush/compaction.
 
 .. variable:: rocksdb_block_cache_size
 
@@ -600,6 +660,7 @@ Allowed range is from ``1`` to ``2147483647``.
 .. variable:: rocksdb_block_size
 
   :version 5.7.19-17: Implemented
+  :version 5.7.20-18: Minimum value has chaned from ``0`` to ``1024``
   :cli: ``--rocksdb-block-size``
   :dyn: No
   :scope: Global
@@ -608,7 +669,7 @@ Allowed range is from ``1`` to ``2147483647``.
 
 Specifies the size of the data block for reading RocksDB data files.
 Default value is ``4096``.
-Allowed range is from ``1`` to ``18446744073709551615``.
+Allowed range is from ``1024`` to ``18446744073709551615``.
 
 .. variable:: rocksdb_block_size_deviation
 
@@ -627,6 +688,19 @@ Default value is ``10``, meaning that the block is not closed
 until there is less than 10 bits of free space remaining.
 
 Allowed range is from ``1`` to ``2147483647``.
+
+.. variable:: rocksdb_bulk_load_allow_unsorted
+
+  :version 5.7.20-18: Implemented
+  :cli: ``--rocksdb-bulk-load-allow-unsorted``
+  :dyn: Yes
+  :scope: Global, Session
+  :vartype: Boolean
+  :default: ``OFF``
+
+By default, the bulk loader requires its input to be sorted in the primary
+key order. If enabled, unsorted inputs are allowed too, which are then
+sorted by the bulkloader itself, at a performance penalty.
 
 .. variable:: rocksdb_bulk_load
 
@@ -763,7 +837,7 @@ to ensure sequential reads instead of random.
 Maximum allowed value is ``18446744073709551615``.
 
 .. note:: If you set this variable to a non-zero value,
-   :variable:`new_table_reader_for_compaction_inputs` is enabled.
+   :variable:`rocksdb_new_table_reader_for_compaction_inputs` is enabled.
 
 .. variable:: rocksdb_compaction_sequential_deletes
 
@@ -830,6 +904,18 @@ Specifies the size of the window for counting delete markers
 by :variable:`rocksdb_compaction_sequential_deletes`.
 Default value is ``0``.
 Allowed range is up to ``2000000`` (two million).
+
+.. variable:: rocksdb_concurrent_prepare
+
+  :version 5.7.20-18: Implemented
+  :cli: ``--rocksdb-concurrent_prepare``
+  :dyn: No
+  :scope: Global
+  :vartype: Boolean
+  :default: ``ON``
+
+When enabled this variable allows/encourages threads that are using
+two-phase commit to ``prepare`` in parallel.
 
 .. variable:: rocksdb_create_checkpoint
 
@@ -907,6 +993,18 @@ Allowed range is up to ``18446744073709551615``.
 Specifies whether MyRocks should detect deadlocks.
 Disabled by default.
 
+.. variable:: rocksdb_deadlock_detect_depth
+
+  :version 5.7.20-18: Implemented
+  :cli: ``--rocksdb-deadlock-detect-depth``
+  :dyn: Yes
+  :scope: Global, Session
+  :vartype: Numeric
+  :default: ``50``
+
+Specifies the number of transactions deadlock detection will traverse
+through before assuming deadlock.
+
 .. variable:: rocksdb_debug_optimizer_no_zero_cardinality
 
   :version 5.7.19-17: Implemented
@@ -918,6 +1016,64 @@ Disabled by default.
 
 Specifies whether MyRocks should prevent zero cardinality
 by always overriding it with some value.
+
+.. variable:: rocksdb_debug_ttl_ignore_pk
+
+  :version 5.7.20-18: Implemented
+  :cli: ``--rocksdb-debug-ttl-ignore-pk``
+  :dyn: Yes
+  :scope: Global
+  :vartype: Boolean
+  :default: ``OFF``
+
+For debugging purposes only. If true, compaction filtering will not occur
+on Primary Key TTL data. This variable is a no-op in non-debug builds.
+
+.. variable:: rocksdb_debug_ttl_read_filter_ts
+
+  :version 5.7.20-18: Implemented
+  :cli: ``--rocksdb_debug-ttl-read-filter-ts``
+  :dyn: Yes
+  :scope: Global
+  :vartype: Numeric
+  :default: ``0``
+
+For debugging purposes only.  Overrides the TTL read
+filtering time to time + :variable:`debug_ttl_read_filter_ts`.
+A value of ``0`` denotes that the variable is not set.
+This variable is a no-op in non-debug builds.
+
+.. variable:: rocksdb_debug_ttl_rec_ts
+
+  :version 5.7.20-18: Implemented
+  :cli: ``--rocksdb-debug-ttl-rec-ts``
+  :dyn: Yes
+  :scope: Global
+  :vartype: Numeric
+  :default: ``0``
+
+For debugging purposes only.  Overrides the TTL of
+records to ``now()`` + :variable:`debug_ttl_rec_ts`.
+The value can be +/- to simulate a record inserted in the past vs a record
+inserted in the "future". A value of ``0`` denotes that the
+variable is not set.
+This variable is a no-op in non-debug builds.
+
+.. variable:: rocksdb_debug_ttl_snapshot_ts
+
+  :version 5.7.20-18: Implemented
+  :cli: ``--rocksdb_debug_ttl_ignore_pk``
+  :dyn: Yes
+  :scope: Global
+  :vartype: Numeric
+  :default: ``0``
+
+For debugging purposes only.  Sets the snapshot during
+compaction to ``now()`` + :variable:`rocksdb_debug_set_ttl_snapshot_ts`.
+The value can be +/- to simulate a snapshot in the past vs a
+snapshot created in the "future". A value of ``0`` denotes
+that the variable is not set. This variable is a no-op in
+non-debug builds.
 
 .. variable:: rocksdb_default_cf_options
 
@@ -988,6 +1144,21 @@ and does not require keys to be inserted in any order.
 Specifies whether to keep expired TTL records during compaction.
 Enabled by default.
 If disabled, expired TTL records will be dropped during compaction.
+
+.. variable:: rocksdb_enable_ttl_read_filtering
+
+  :version 5.7.20-18: Implemented
+  :cli: ``--rocksdb-enable-ttl-read-filtering``
+  :dyn: Yes
+  :scope: Global
+  :vartype: Boolean
+  :default: ``ON``
+
+For tables with TTL, expired records are skipped/filtered
+out during processing and in query results. Disabling
+this will allow these records to be seen, but as a result
+rows may disappear in the middle of transactions as they
+are dropped during compaction. **Use with caution.**
 
 .. variable:: rocksdb_enable_thread_tracking
 
@@ -1088,6 +1259,18 @@ used by the query optimizer.
 Enabled by default.
 This provides better accuracy, but may reduce performance.
 
+.. variable:: rocksdb_force_compute_memtable_stats_cachetime
+
+  :version 5.7.20-18: Implemented
+  :cli: ``--rocksdb-force-compute-memtable-stats-cachetime``
+  :dyn: Yes
+  :scope: Global
+  :vartype: Numeric
+  :default: 60000000
+
+Specifies for how long the cached value of memtable statistics should
+be used instead of computing it every time during the query plan analysis.
+
 .. variable:: rocksdb_force_flush_memtable_and_lzero_now
 
   :version 5.7.19-17: Implemented
@@ -1142,6 +1325,17 @@ Specifies whether hash collisions are allowed.
 Enabled by default, which uses less memory.
 If disabled, full prefix is stored to prevent hash collisions.
 
+.. variable:: rocksdb_ignore_unknown_options
+
+  :version 5.7.20-18: Implemented
+  :cli: ``--rocksdb-ignore-unknown-options``
+  :dyn: No
+  :scope: Global
+  :vartype: Boolean
+  :default: ``ON``
+
+When enabled, it allows RocksDB to receive unknown options and not exit.
+
 .. variable:: rocksdb_index_type
 
   :version 5.7.19-17: Implemented
@@ -1187,6 +1381,21 @@ to the ``mysqld`` log.
 
 Specifies whether child processes should inherit open file jandles.
 Enabled by default.
+
+.. variable:: rocksdb_large_prefix
+
+  :version 5.7.20-18: Implemented
+  :cli: ``--rocksdb-large-prefix``
+  :dyn: Yes
+  :scope: Global
+  :vartype: Boolean
+  :default: ``OFF``
+
+When enabled, this option allows index key prefixes longer than 767 bytes
+(up to 3072 bytes). This option mirrors the `innodb_large_prefix
+<https://dev.mysql.com/doc/refman/5.7/en/innodb-parameters.html#sysvar_innodb_large_prefix>`_
+The values for :variable:`rocksdb_large_prefix` should be the same between
+master and slave.
 
 .. variable:: rocksdb_keep_log_file_num
 
@@ -1259,9 +1468,22 @@ Allowed range is up to ``18446744073709551615``.
 .. note:: A value of ``4194304`` (4 MB) is reasonable
    to reduce random I/O on XFS.
 
+.. variable:: rocksdb_manual_wal_flush
+
+  :version 5.7.20-18: Implemented
+  :cli: ``--rocksdb-manual-wal-flush``
+  :dyn: No
+  :scope: Global
+  :vartype: Boolean
+  :default: ``ON``
+
+This variable can be used to disable automatic/timed WAL flushing and instead
+rely on the application to do the flushing.
+
 .. variable:: rocksdb_max_background_compactions
 
   :version 5.7.19-17: Implemented
+  :version 5.7.20-18: Replaced by :variable:`rocksdb_max_background_jobs`
   :cli: ``--rocksdb-max-background-compactions``
   :dyn: Yes
   :scope: Global
@@ -1270,12 +1492,15 @@ Allowed range is up to ``18446744073709551615``.
 
 Specifies the maximum number of concurrent background compaction threads,
 submitted to the low-priority thread pool.
-Default value is ``1``.
-Allowed range is up to ``64``.
+Default value is ``1``. Allowed range is up to ``64``.
+This variable has been replaced in |Percona Server| :rn:`5.7.20-18`
+by :variable:`rocksdb_max_background_jobs`, which automatically decides how
+many threads to allocate towards flush/compaction.
 
 .. variable:: rocksdb_max_background_flushes
 
   :version 5.7.19-17: Implemented
+  :version 5.7.20-18: Replaced by :variable:`rocksdb_max_background_jobs`
   :cli: ``--rocksdb-max-background-flushes``
   :dyn: No
   :scope: Global
@@ -1284,8 +1509,39 @@ Allowed range is up to ``64``.
 
 Specifies the maximum number of concurrent background memtable flush threads,
 submitted to the high-priority thread-pool.
-Default value is ``1``.
-Allowed range is up to ``64``.
+Default value is ``1``. Allowed range is up to ``64``.
+This variable has been replaced in |Percona Server| :rn:`5.7.20-18`
+by :variable:`rocksdb_max_background_jobs`, which automatically decides how
+many threads to allocate towards flush/compaction.
+
+.. variable:: rocksdb_max_background_jobs
+
+  :version 5.7.20-18: Implemented
+  :cli: ``--rocksdb-max-background-jobs``
+  :dyn: Yes
+  :scope: Global
+  :vartype: Numeric
+  :default: ``2``
+
+This variable has been introduced in |Percona Server| :rn:`5.7.20-18`
+to replace :variable:`rocksdb_base_background_compactions`,
+:variable:`rocksdb_max_background_compactions`, and
+:variable:`rocksdb_max_background_flushes` variables. This variable specifies
+the maximum number of background jobs. It automatically decides
+how many threads to allocate towards flush/compaction. It was implemented to
+reduce the number of (confusing) options users and can tweak and push the
+responsibility down to RocksDB level.
+
+.. variable:: rocksdb_max_latest_deadlocks
+
+  :version 5.7.20-18: Implemented
+  :cli: ``--rocksdb-max-latest-deadlocks``
+  :dyn: Yes
+  :scope: Global
+  :vartype: Numeric
+  :default: ``5``
+
+Specifies the maximum number of recent deadlocks to store.
 
 .. variable:: rocksdb_max_log_file_size
 
@@ -1320,15 +1576,26 @@ only one manifest file is used.
 .. variable:: rocksdb_max_open_files
 
   :version 5.7.19-17: Implemented
+  :version 5.7.19-17: Default value changed to ``1000``
   :cli: ``--rocksdb-max-open-files``
   :dyn: No
   :scope: Global
   :vartype: Numeric
-  :default: ``4294967295``
+  :default: ``1000``
 
 Specifies the maximum number of file handles opened by MyRocks.
-Default value is also the maximum, making it practically unlimited:
-all opened files remain open.
+Values in the range between ``0`` and ``open_files_limit`` 
+are taken as they are. If :variable:`rocksdb_max_open_files` value is 
+greater than ``open_files_limit``, it will be reset to 1/2 of 
+``open_files_limit``, and a warning will be emitted to the ``mysqld``
+error log. A value of ``-2`` denotes auto tuning: just sets 
+:variable:`rocksdb_max_open_files` value to 1/2 of ``open_files_limit``. 
+Finally, ``-1`` means no limit, i.e. an infinite number of file handles.
+
+.. warning::
+
+  Setting :variable:`rocksdb_max_open_files` to ``-1`` is dangerous, 
+  as server may quickly run out of file handles in this case.
 
 .. variable:: rocksdb_max_row_locks
 
@@ -1403,6 +1670,21 @@ as described in :variable:`rocksdb_merge_buf_size`.
 Default size is 1 GB (``1073741824``).
 Allowed range is from ``100`` to ``18446744073709551615``.
 
+.. variable:: rocksdb_merge_tmp_file_removal_delay_ms
+
+  :version 5.7.20-18: Implemented
+  :cli: ``--rocksdb_merge_tmp_file_removal_delay_ms``
+  :dyn: Yes
+  :scope: Global, Session
+  :vartype: Numeric
+  :default: ``0``
+
+Fast secondary index creation creates merge files when needed. After finishing
+secondary index creation, merge files are removed. By default, the file removal
+is done without any sleep, so removing GBs of merge files within <1s may
+happen, which will cause trim stalls on Flash. This variable can be used to
+rate limit the delay in milliseconds.
+
 .. variable:: rocksdb_new_table_reader_for_compaction_inputs
 
   :version 5.7.19-17: Implemented
@@ -1467,7 +1749,17 @@ Enabled by default.
   :default: ``OFF``
 
 Specifies whether MyRocks should pause all background operations.
-Disabled by default.
+Disabled by default. There is no practical reason for a user to ever
+use this variable because it is intended as a test synchronization tool
+for the MyRocks MTR test suites.
+
+.. warning::
+
+  If someone were to set a :variable:`rocksdb_force_flush_memtable_now` to
+  ``1`` while :variable:`rocksdb_pause_background_work` is set to ``1``,
+  the client that issued the ``rocksdb_force_flush_memtable_now=1`` will be
+  blocked indefinitely until :variable:`rocksdb_pause_background_work`
+  is set to ``0``.
 
 .. variable:: rocksdb_perf_context_level
 
@@ -1571,7 +1863,7 @@ Empty by default.
   :vartype: Numeric
   :default: ``0``
 
-Specifies the value to overrride the result of ``records_in_range()``.
+Specifies the value to override the result of ``records_in_range()``.
 Default value is ``0``.
 Allowed range is up to ``2147483647``.
 
@@ -1590,6 +1882,7 @@ Resets MyRocks internal statistics dynamically
 .. variable:: rocksdb_rpl_skip_tx_api
 
   :version 5.7.19-17: Implemented
+  :version 5.7.20-19: Variable removed
   :cli: ``--rocksdb-rpl-skip-tx-api``
   :dyn: No
   :scope: Global
@@ -1626,6 +1919,18 @@ Allowed is from ``0`` to ``4294967295``.
 
 Signals the MyRocks drop index thread to wake up.
 
+.. variable:: rocksdb_sim_cache_size
+
+  :version 5.7.20-18: Implemented
+  :cli: ``--rocksdb-sim-cache-size``
+  :dyn: No
+  :scope: Global
+  :vartype: Numeric
+  :default: ``0``
+
+Enables the simulated cache, which allows us to figure out the hit/miss rate
+with a specific cache size without changing the real block cache.
+
 .. variable:: rocksdb_skip_bloom_filter_on_read
 
   :version 5.7.19-17: Implemented
@@ -1653,14 +1958,15 @@ Disabled by default (caching is not skipped).
 .. variable:: rocksdb_sst_mgr_rate_bytes_per_sec
 
   :version 5.7.19-17: Implemented
+  :version 5.7.20-18: Default value changed from ``67108864`` to ``0``
   :cli: ``--rocksdb-sst-mgr-rate-bytes-per-sec``
   :dyn: Yes
   :scope: Global, Session
   :vartype: Numeric
-  :default: ``67108864``
+  :default: ``0``
 
 Specifies the maximum rate for writing to data files.
-Default value is ``67108864`` (64 MB/sec).
+Default value is ``0``. This option is not effective on HDD.
 Allowed range is from ``0`` to ``18446744073709551615``.
 
 .. variable:: rocksdb_stats_dump_period_sec
@@ -1719,6 +2025,7 @@ Empty by default.
 .. variable:: rocksdb_table_cache_numshardbits
 
   :version 5.7.19-17: Implemented
+  :version 5.7.20-18: Max value changed from ``2147483647`` to ``19``
   :cli: ``--rocksdb-table-cache-numshardbits``
   :dyn: No
   :scope: Global
@@ -1727,7 +2034,7 @@ Empty by default.
 
 Specifies the number if table caches.
 Default value is ``6``.
-Allowed range is from ``0`` to ``2147483647``.
+Allowed range is from ``0`` to ``19``.
 
 .. variable:: rocksdb_table_stats_sampling_pct
 
@@ -1953,6 +2260,20 @@ Specifies whether the bloomfilter should use the whole key for filtering
 instead of just the prefix.
 Enabled by default.
 Make sure that lookups use the whole key for matching.
+
+.. variable:: rocksdb_write_batch_max_bytes
+
+  :version 5.7.20-18: Implemented
+  :cli: ``--rocksdb-write-batch-max-bytes``
+  :dyn: Yes
+  :scope: Global, Session
+  :vartype: Numeric
+  :default: ``0``
+
+Specifies the maximum size of a RocksDB write batch in bytes. ``0`` means no
+limit. In case user exceeds the limit following error will be shown:
+``ERROR HY000: Status error 10 received from RocksDB: Operation aborted: Memory
+limit reached``.
 
 .. variable:: rocksdb_write_disable_wal
 

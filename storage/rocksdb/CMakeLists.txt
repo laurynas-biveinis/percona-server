@@ -34,6 +34,15 @@ IF ((CMAKE_CXX_COMPILER_ID STREQUAL GNU) AND
   RETURN ()
 ENDIF ()
 
+# Relax fallthrough warnings we have no control over, as it's in zstd
+IF(CMAKE_COMPILER_IS_GNUCXX OR CMAKE_CXX_COMPILER_ID MATCHES "Clang")
+  MY_CHECK_CXX_COMPILER_FLAG("-Wimplicit-fallthrough=0" HAVE_IMPLICIT_FALLTHROUGH)
+  IF(HAVE_IMPLICIT_FALLTHROUGH)
+    SET(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wimplicit-fallthrough=0")
+    SET(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wimplicit-fallthrough=0")
+  ENDIF()
+ENDIF()
+
 # check that compiler supports cxx11 and set options
 INCLUDE (check_stdcxx11)
 IF (!HAVE_STDCXX11)
@@ -49,6 +58,26 @@ CHECK_FUNCTION_EXISTS(sched_getcpu  HAVE_SCHED_GETCPU)
 IF(HAVE_SCHED_GETCPU)
   ADD_DEFINITIONS(-DHAVE_SCHED_GETCPU=1 -DROCKSDB_SCHED_GETCPU_PRESENT)
 ENDIF()
+
+SET(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -msse4.2")
+SET(CMAKE_REQUIRED_FLAGS ${CMAKE_CXX_FLAGS})
+INCLUDE(CheckCXXSourceCompiles)
+CHECK_CXX_SOURCE_COMPILES("
+#include <cstdint>
+#include <nmmintrin.h>
+int main() {
+  volatile uint32_t x __attribute__((unused)) = _mm_crc32_u32(0, 0);
+}
+" HAVE_SSE42)
+IF (HAVE_SSE42)
+  ADD_DEFINITIONS(-DHAVE_SSE42)
+ELSE ()
+  IF (ALLOW_NO_SSE42)
+    MESSAGE(WARNING "No SSE42 support found and ALLOW_NO_SSE42 specified, building MyRocks but without SSE42/FastCRC32 support")
+  ELSE ()
+    MESSAGE(FATAL_ERROR "No SSE42 support found. Not building MyRocks")
+  ENDIF ()
+ENDIF ()
 
 IF(UNIX)
   IF(CMAKE_SYSTEM_NAME STREQUAL "Linux")

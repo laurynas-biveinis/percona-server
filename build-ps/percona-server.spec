@@ -158,6 +158,7 @@ BuildRequires:  openssl-devel
 BuildRequires:  zlib-devel
 BuildRequires:  bison
 BuildRequires:  openldap-devel
+BuildRequires:  libcurl-devel
 %if 0%{?systemd}
 BuildRequires:  systemd
 BuildRequires:  pkgconfig(systemd)
@@ -524,7 +525,7 @@ rm -rf %{buildroot}%{_bindir}/mysql_embedded
 datadir=$(/usr/bin/my_print_defaults server mysqld | grep '^--datadir=' | sed -n 's/--datadir=//p' | tail -n 1)
 /bin/chmod 0751 "$datadir" >/dev/null 2>&1 || :
 if [ ! -e /var/log/mysqld.log ]; then
-    /bin/install -m0640 -omysql -gmysql /dev/null /var/log/mysqld.log
+    /usr/bin/install -m0640 -omysql -gmysql /dev/null /var/log/mysqld.log
 fi
 #/bin/touch /var/log/mysqld.log >/dev/null 2>&1 || :
 %if 0%{?systemd}
@@ -628,7 +629,6 @@ fi
 %if 0%{?rocksdb}
 %post -n Percona-Server-rocksdb%{product_suffix}
 if [ $1 -eq 1 ] ; then
-  echo -e "\n\n * This is _EXPERIMENTAL_ build so it is not for production systems."
   echo -e "\n\n * This release of Percona Server is distributed with RocksDB storage engine."
   echo -e " * Run the following script to enable the RocksDB storage engine in Percona Server:\n"
   echo -e "\tps-admin --enable-rocksdb -u <mysql_admin_user> -p[mysql_admin_pass] [-S <socket>] [-h <host> -P <port>]\n"

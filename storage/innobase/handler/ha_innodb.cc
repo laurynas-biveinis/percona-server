@@ -922,6 +922,10 @@ static MYSQL_THDVAR_STR(tmpdir,
   "Directory for temporary non-tablespace files.",
   innodb_tmpdir_validate, NULL, NULL);
 
+static MYSQL_THDVAR_BOOL(ft_ignore_stopwords, PLUGIN_VAR_OPCMDARG,
+  "Instruct FTS to ignore stopwords.",
+  NULL, NULL, FALSE);
+
 static SHOW_VAR innodb_status_variables[]= {
   {"background_log_sync",
   (char*) &export_vars.innodb_background_log_sync,	  SHOW_LONG, SHOW_SCOPE_GLOBAL},
@@ -1083,6 +1087,22 @@ static SHOW_VAR innodb_status_variables[]= {
   (char*) &export_vars.innodb_sec_rec_cluster_reads_avoided, SHOW_LONG, SHOW_SCOPE_GLOBAL},
   {"buffered_aio_submitted",
   (char*) &export_vars.innodb_buffered_aio_submitted,	  SHOW_LONG, SHOW_SCOPE_GLOBAL},
+
+  {"scan_pages_contiguous",
+  (char*) &export_vars.innodb_fragmentation_stats.scan_pages_contiguous,
+  SHOW_LONG, SHOW_SCOPE_GLOBAL},
+  {"scan_pages_disjointed",
+  (char*) &export_vars.innodb_fragmentation_stats.scan_pages_disjointed,
+  SHOW_LONG, SHOW_SCOPE_GLOBAL},
+  {"scan_pages_total_seek_distance",
+  (char*) &export_vars.innodb_fragmentation_stats.scan_pages_total_seek_distance,
+  SHOW_LONG, SHOW_SCOPE_GLOBAL},
+  {"scan_data_size",
+  (char*) &export_vars.innodb_fragmentation_stats.scan_data_size,
+  SHOW_LONG, SHOW_SCOPE_GLOBAL},
+  {"scan_deleted_recs_size",
+  (char*) &export_vars.innodb_fragmentation_stats.scan_deleted_recs_size,
+  SHOW_LONG, SHOW_SCOPE_GLOBAL},
   {NullS, NullS, SHOW_LONG, SHOW_SCOPE_GLOBAL}
 };
 
@@ -1850,6 +1870,16 @@ thd_lock_wait_timeout(
 	/* According to <mysql/plugin.h>, passing thd == NULL
 	returns the global value of the session variable. */
 	return(THDVAR(thd, lock_wait_timeout));
+}
+
+/** Is FT ignore stopwords variable set.
+@param thd Thread object
+@return true if ft_ignore_stopwords is set, false otherwise. */
+bool
+thd_has_ft_ignore_stopwords(THD* thd)
+{
+	bool res = THDVAR(thd, ft_ignore_stopwords);
+	return(res);
 }
 
 /******************************************************************//**
@@ -3103,6 +3133,7 @@ ha_innobase::ha_innobase(
 			  | HA_GENERATED_COLUMNS
 			  | HA_ATTACHABLE_TRX_COMPATIBLE
 			  | HA_CAN_INDEX_VIRTUAL_GENERATED_COLUMN
+			  | HA_ONLINE_ANALYZE
 		  ),
 	m_start_of_scan(),
 	m_num_write_row(),
@@ -8059,7 +8090,8 @@ ha_innobase::innobase_lock_autoinc(void)
 				break;
 			}
 		}
-		/* Fall through to old style locking. */
+		// fallthrough
+		// to old style locking.
 
 	case AUTOINC_OLD_STYLE_LOCKING:
 		DBUG_EXECUTE_IF("die_if_autoinc_old_lock_style_used",
@@ -12298,7 +12330,8 @@ index_bad:
 			break;
 		}
 		zip_allowed = false;
-		/* fall through to set row_type = DYNAMIC */
+		// fallthrough
+		// to set row_type = DYNAMIC
 	case ROW_TYPE_NOT_USED:
 	case ROW_TYPE_FIXED:
 	case ROW_TYPE_PAGE:
@@ -12307,6 +12340,7 @@ index_bad:
 			m_thd, Sql_condition::SL_WARNING,
 			ER_ILLEGAL_HA_CREATE_OPTION,
 			"InnoDB: assuming ROW_FORMAT=DYNAMIC.");
+		// fallthrough
 	case ROW_TYPE_DYNAMIC:
 		innodb_row_format = REC_FORMAT_DYNAMIC;
 		break;
@@ -21636,6 +21670,13 @@ static MYSQL_SYSVAR_BOOL(print_all_deadlocks, srv_print_all_deadlocks,
   "Print all deadlocks to MySQL error log (off by default)",
   NULL, NULL, FALSE);
 
+static MYSQL_SYSVAR_BOOL(
+  print_lock_wait_timeout_info,
+  srv_print_lock_wait_timeout_info,
+  PLUGIN_VAR_OPCMDARG,
+  "Print lock wait timeout info to MySQL error log (off by default)",
+  NULL, NULL, FALSE);
+
 static MYSQL_SYSVAR_ULONG(compression_failure_threshold_pct,
   zip_failure_threshold_pct, PLUGIN_VAR_OPCMDARG,
   "If the compression failure rate of a table is greater than this number"
@@ -21931,6 +21972,7 @@ static struct st_mysql_sys_var* innobase_system_variables[]= {
   MYSQL_SYSVAR(cleaner_lsn_age_factor),
   MYSQL_SYSVAR(empty_free_list_algorithm),
   MYSQL_SYSVAR(print_all_deadlocks),
+  MYSQL_SYSVAR(print_lock_wait_timeout_info),
   MYSQL_SYSVAR(cmp_per_index_enabled),
   MYSQL_SYSVAR(undo_logs),
   MYSQL_SYSVAR(max_undo_log_size),
@@ -21960,6 +22002,7 @@ static struct st_mysql_sys_var* innobase_system_variables[]= {
   MYSQL_SYSVAR(parallel_doublewrite_path),
   MYSQL_SYSVAR(compressed_columns_zip_level),
   MYSQL_SYSVAR(compressed_columns_threshold),
+  MYSQL_SYSVAR(ft_ignore_stopwords),
   NULL
 };
 

@@ -66,6 +66,7 @@ Performance Improvements
    :maxdepth: 1
    :glob:
 
+   performance/aio_page_requests
    performance/query_cache_enhance
    performance/innodb_numa_support
    performance/threadpool
@@ -91,6 +92,7 @@ Flexibility Improvements
    flexibility/proxy_protocol_support
    flexibility/per_session_server-id
    flexibility/compressed_columns
+   flexibility/innodb_fts_improvements
 
 Reliability Improvements
 ========================
@@ -121,6 +123,7 @@ Management Improvements
    management/audit_log_plugin
    management/start_transaction_with_consistent_snapshot
    management/extended_show_grants
+   management/data_at_rest_encryption
 
 Diagnostics Improvements
 ========================
@@ -138,6 +141,7 @@ Diagnostics Improvements
    diagnostics/thread_based_profiling
    diagnostics/scalability_metrics_plugin
    diagnostics/response_time_distribution
+   diagnostics/innodb_fragmentation_count
 
 TokuDB
 ======
@@ -155,6 +159,7 @@ TokuDB
    tokudb/tokudb_variables
    tokudb/tokudb_status_variables
    tokudb/tokudb_troubleshooting
+   tokudb/tokudb_performance_schema
    tokudb/toku_backup
    tokudb/tokudb_faq
    tokudb/removing_tokudb
@@ -170,8 +175,10 @@ Percona MyRocks
    Installation <myrocks/install>
    Limitations <myrocks/limitations>
    Differences <myrocks/differences>
-   Variables <myrocks/variables>
+   Server Variables <myrocks/variables>
+   Status Variables <myrocks/status_variables>
    myrocks/gap_locks_detection
+   myrocks/data_loading
 
 Reference
 =========

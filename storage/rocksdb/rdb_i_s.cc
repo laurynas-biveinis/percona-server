@@ -78,6 +78,13 @@ static int rdb_i_s_cfstats_fill_table(my_core::THD *const thd,
   DBUG_ASSERT(tables->table->field != nullptr);
 
   int ret = 0;
+  Rdb_hton_init_state::Scoped_lock state_lock(*rdb_get_hton_init_state(),
+                                              false);
+  if (!rdb_get_hton_init_state()->initialized()) {
+    ret = ER_PLUGIN_IS_NOT_LOADED;
+    my_error(ret, MYF(0), rocksdb_hton_name);
+    DBUG_RETURN(ret);
+  }
   uint64_t val;
 
   const std::vector<std::pair<const std::string, std::string>> cf_properties = {
@@ -174,6 +181,13 @@ static int rdb_i_s_dbstats_fill_table(my_core::THD *const thd,
   DBUG_ASSERT(tables->table->field != nullptr);
 
   int ret = 0;
+  Rdb_hton_init_state::Scoped_lock state_lock(*rdb_get_hton_init_state(),
+                                              false);
+  if (!rdb_get_hton_init_state()->initialized()) {
+    ret = ER_PLUGIN_IS_NOT_LOADED;
+    my_error(ret, MYF(0), rocksdb_hton_name);
+    DBUG_RETURN(ret);
+  }
   uint64_t val;
 
   const std::vector<std::pair<std::string, std::string>> db_properties = {
@@ -272,6 +286,14 @@ static int rdb_i_s_perf_context_fill_table(my_core::THD *const thd,
   DBUG_ASSERT(tables->table != nullptr);
 
   int ret = 0;
+  Rdb_hton_init_state::Scoped_lock state_lock(*rdb_get_hton_init_state(),
+                                              false);
+  if (!rdb_get_hton_init_state()->initialized()) {
+    ret = ER_PLUGIN_IS_NOT_LOADED;
+    my_error(ret, MYF(0), rocksdb_hton_name);
+    DBUG_RETURN(ret);
+  }
+
   Field **field = tables->table->field;
   DBUG_ASSERT(field != nullptr);
 
@@ -370,6 +392,13 @@ static int rdb_i_s_perf_context_global_fill_table(
   DBUG_ASSERT(tables->table->field != nullptr);
 
   int ret = 0;
+  Rdb_hton_init_state::Scoped_lock state_lock(*rdb_get_hton_init_state(),
+                                              false);
+  if (!rdb_get_hton_init_state()->initialized()) {
+    ret = ER_PLUGIN_IS_NOT_LOADED;
+    my_error(ret, MYF(0), rocksdb_hton_name);
+    DBUG_RETURN(ret);
+  }
 
   rocksdb::DB *const rdb = rdb_get_rocksdb_db();
 
@@ -437,6 +466,13 @@ static int rdb_i_s_cfoptions_fill_table(my_core::THD *const thd,
   DBUG_ASSERT(tables != nullptr);
 
   int ret = 0;
+  Rdb_hton_init_state::Scoped_lock state_lock(*rdb_get_hton_init_state(),
+                                              false);
+  if (!rdb_get_hton_init_state()->initialized()) {
+    ret = ER_PLUGIN_IS_NOT_LOADED;
+    my_error(ret, MYF(0), rocksdb_hton_name);
+    DBUG_RETURN(ret);
+  }
 
   rocksdb::DB *const rdb = rdb_get_rocksdb_db();
 
@@ -733,6 +769,13 @@ static int rdb_i_s_global_info_fill_table(my_core::THD *const thd,
   static const uint32_t CF_ID_INDEX_BUF_LEN = 60;
 
   int ret = 0;
+  Rdb_hton_init_state::Scoped_lock state_lock(*rdb_get_hton_init_state(),
+                                              false);
+  if (!rdb_get_hton_init_state()->initialized()) {
+    ret = ER_PLUGIN_IS_NOT_LOADED;
+    my_error(ret, MYF(0), rocksdb_hton_name);
+    DBUG_RETURN(ret);
+  }
 
   /* max index info */
   const Rdb_dict_manager *const dict_manager = rdb_get_dict_manager();
@@ -813,6 +856,14 @@ static int rdb_i_s_compact_stats_fill_table(my_core::THD *thd,
   DBUG_ENTER_FUNC();
 
   int ret = 0;
+  Rdb_hton_init_state::Scoped_lock state_lock(*rdb_get_hton_init_state(),
+                                              false);
+  if (!rdb_get_hton_init_state()->initialized()) {
+    ret = ER_PLUGIN_IS_NOT_LOADED;
+    my_error(ret, MYF(0), rocksdb_hton_name);
+    DBUG_RETURN(ret);
+  }
+
   rocksdb::DB *rdb = rdb_get_rocksdb_db();
 
   if (!rdb) {
@@ -828,17 +879,22 @@ static int rdb_i_s_compact_stats_fill_table(my_core::THD *thd,
       continue;
     }
 
-    std::map<std::string, double> props;
+    std::map<std::string, std::string> props;
     bool bool_ret MY_ATTRIBUTE((__unused__));
     bool_ret = rdb->GetMapProperty(cfh, "rocksdb.cfstats", &props);
     DBUG_ASSERT(bool_ret);
 
+    const std::string prop_name_prefix = "compaction.";
     for (auto const &prop_ent : props) {
       std::string prop_name = prop_ent.first;
-      double value = prop_ent.second;
-      std::size_t del_pos = prop_name.find('.');
+      if (prop_name.find(prop_name_prefix) != 0) {
+        continue;
+      }
+      std::string value = prop_ent.second;
+      std::size_t del_pos = prop_name.find('.', prop_name_prefix.size());
       DBUG_ASSERT(del_pos != std::string::npos);
-      std::string level_str = prop_name.substr(0, del_pos);
+      std::string level_str = prop_name.substr(
+          prop_name_prefix.size(), del_pos - prop_name_prefix.size());
       std::string type_str = prop_name.substr(del_pos + 1);
 
       Field **field = tables->table->field;
@@ -847,7 +903,7 @@ static int rdb_i_s_compact_stats_fill_table(my_core::THD *thd,
       field[0]->store(cf_name.c_str(), cf_name.size(), system_charset_info);
       field[1]->store(level_str.c_str(), level_str.size(), system_charset_info);
       field[2]->store(type_str.c_str(), type_str.size(), system_charset_info);
-      field[3]->store(value, true);
+      field[3]->store(std::stod(value));
 
       ret |= static_cast<int>(
           my_core::schema_table_store_record(thd, tables->table));
@@ -891,6 +947,8 @@ enum {
   INDEX_NUMBER,
   INDEX_TYPE,
   KV_FORMAT_VERSION,
+  TTL_DURATION,
+  INDEX_FLAGS,
   CF
 };
 } // namespace RDB_DDL_FIELD
@@ -906,6 +964,8 @@ static ST_FIELD_INFO rdb_i_s_ddl_fields_info[] = {
     ROCKSDB_FIELD_INFO("INDEX_TYPE", sizeof(uint16_t), MYSQL_TYPE_SHORT, 0),
     ROCKSDB_FIELD_INFO("KV_FORMAT_VERSION", sizeof(uint16_t), MYSQL_TYPE_SHORT,
                        0),
+    ROCKSDB_FIELD_INFO("TTL_DURATION", sizeof(uint64), MYSQL_TYPE_LONGLONG, 0),
+    ROCKSDB_FIELD_INFO("INDEX_FLAGS", sizeof(uint64), MYSQL_TYPE_LONGLONG, 0),
     ROCKSDB_FIELD_INFO("CF", NAME_LEN + 1, MYSQL_TYPE_STRING, 0),
     ROCKSDB_FIELD_INFO_END};
 
@@ -947,6 +1007,8 @@ int Rdb_ddl_scanner::add_table(Rdb_tbl_def *tdef) {
     field[RDB_DDL_FIELD::INDEX_TYPE]->store(kd.m_index_type, true);
     field[RDB_DDL_FIELD::KV_FORMAT_VERSION]->store(kd.m_kv_format_version,
                                                    true);
+    field[RDB_DDL_FIELD::TTL_DURATION]->store(kd.m_ttl_duration, true);
+    field[RDB_DDL_FIELD::INDEX_FLAGS]->store(kd.m_index_flags_bitmap, true);
 
     std::string cf_name = kd.get_cf()->GetName();
     field[RDB_DDL_FIELD::CF]->store(cf_name.c_str(), cf_name.size(),
@@ -969,6 +1031,14 @@ static int rdb_i_s_ddl_fill_table(my_core::THD *const thd,
   DBUG_ASSERT(tables->table != nullptr);
 
   int ret = 0;
+  Rdb_hton_init_state::Scoped_lock state_lock(*rdb_get_hton_init_state(),
+                                              false);
+  if (!rdb_get_hton_init_state()->initialized()) {
+    ret = ER_PLUGIN_IS_NOT_LOADED;
+    my_error(ret, MYF(0), rocksdb_hton_name);
+    DBUG_RETURN(ret);
+  }
+
   rocksdb::DB *const rdb = rdb_get_rocksdb_db();
 
   if (!rdb) {
@@ -1114,6 +1184,14 @@ static int rdb_i_s_index_file_map_fill_table(my_core::THD *const thd,
   DBUG_ASSERT(tables->table != nullptr);
 
   int ret = 0;
+  Rdb_hton_init_state::Scoped_lock state_lock(*rdb_get_hton_init_state(),
+                                              false);
+  if (!rdb_get_hton_init_state()->initialized()) {
+    ret = ER_PLUGIN_IS_NOT_LOADED;
+    my_error(ret, MYF(0), rocksdb_hton_name);
+    DBUG_RETURN(ret);
+  }
+
   Field **field = tables->table->field;
   DBUG_ASSERT(field != nullptr);
 
@@ -1252,6 +1330,13 @@ static int rdb_i_s_lock_info_fill_table(my_core::THD *const thd,
   DBUG_ASSERT(tables->table->field != nullptr);
 
   int ret = 0;
+  Rdb_hton_init_state::Scoped_lock state_lock(*rdb_get_hton_init_state(),
+                                              false);
+  if (!rdb_get_hton_init_state()->initialized()) {
+    ret = ER_PLUGIN_IS_NOT_LOADED;
+    my_error(ret, MYF(0), rocksdb_hton_name);
+    DBUG_RETURN(ret);
+  }
 
   rocksdb::TransactionDB *const rdb = rdb_get_rocksdb_db();
 
@@ -1367,6 +1452,14 @@ static int rdb_i_s_trx_info_fill_table(my_core::THD *const thd,
   DBUG_ASSERT(tables->table->field != nullptr);
 
   int ret = 0;
+  Rdb_hton_init_state::Scoped_lock state_lock(*rdb_get_hton_init_state(),
+                                              false);
+  if (!rdb_get_hton_init_state()->initialized()) {
+    ret = ER_PLUGIN_IS_NOT_LOADED;
+    my_error(ret, MYF(0), rocksdb_hton_name);
+    DBUG_RETURN(ret);
+  }
+
   rocksdb::DB *const rdb = rdb_get_rocksdb_db();
 
   if (!rdb) {
@@ -1435,6 +1528,125 @@ static int rdb_i_s_trx_info_init(void *const p) {
 
   schema->fields_info = rdb_i_s_trx_info_fields_info;
   schema->fill_table = rdb_i_s_trx_info_fill_table;
+
+  DBUG_RETURN(0);
+}
+
+/*
+  Support for INFORMATION_SCHEMA.ROCKSDB_DEADLOCK dynamic table
+ */
+namespace RDB_DEADLOCK_FIELD {
+enum {
+  DEADLOCK_ID = 0,
+  TRANSACTION_ID,
+  CF_NAME,
+  WAITING_KEY,
+  LOCK_TYPE,
+  INDEX_NAME,
+  TABLE_NAME,
+  ROLLED_BACK
+};
+} // namespace RDB_TRX_FIELD
+
+static ST_FIELD_INFO rdb_i_s_deadlock_info_fields_info[] = {
+    ROCKSDB_FIELD_INFO("DEADLOCK_ID", sizeof(ulonglong), MYSQL_TYPE_LONGLONG,
+                       0),
+    ROCKSDB_FIELD_INFO("TRANSACTION_ID", sizeof(ulonglong), MYSQL_TYPE_LONGLONG,
+                       0),
+    ROCKSDB_FIELD_INFO("CF_NAME", NAME_LEN + 1, MYSQL_TYPE_STRING, 0),
+    ROCKSDB_FIELD_INFO("WAITING_KEY", FN_REFLEN + 1, MYSQL_TYPE_STRING, 0),
+    ROCKSDB_FIELD_INFO("LOCK_TYPE", NAME_LEN + 1, MYSQL_TYPE_STRING, 0),
+    ROCKSDB_FIELD_INFO("INDEX_NAME", NAME_LEN + 1, MYSQL_TYPE_STRING, 0),
+    ROCKSDB_FIELD_INFO("TABLE_NAME", NAME_LEN + 1, MYSQL_TYPE_STRING, 0),
+    ROCKSDB_FIELD_INFO("ROLLED_BACK", sizeof(ulonglong), MYSQL_TYPE_LONGLONG,
+                       0),
+    ROCKSDB_FIELD_INFO_END};
+
+/* Fill the information_schema.rocksdb_trx virtual table */
+static int rdb_i_s_deadlock_info_fill_table(
+    my_core::THD *const thd, my_core::TABLE_LIST *const tables,
+    my_core::Item *const cond MY_ATTRIBUTE((__unused__))) {
+  DBUG_ENTER_FUNC();
+
+  DBUG_ASSERT(thd != nullptr);
+  DBUG_ASSERT(tables != nullptr);
+  DBUG_ASSERT(tables->table != nullptr);
+  DBUG_ASSERT(tables->table->field != nullptr);
+
+  static const std::string str_exclusive("EXCLUSIVE");
+  static const std::string str_shared("SHARED");
+
+  int ret = 0;
+  Rdb_hton_init_state::Scoped_lock state_lock(*rdb_get_hton_init_state(),
+                                              false);
+  if (!rdb_get_hton_init_state()->initialized()) {
+    ret = ER_PLUGIN_IS_NOT_LOADED;
+    my_error(ret, MYF(0), rocksdb_hton_name);
+    DBUG_RETURN(ret);
+  }
+
+  rocksdb::DB *const rdb = rdb_get_rocksdb_db();
+
+  if (!rdb) {
+    DBUG_RETURN(ret);
+  }
+
+  const std::vector<Rdb_deadlock_info> &all_dl_info = rdb_get_deadlock_info();
+
+  ulonglong id = 0;
+  for (const auto &info : all_dl_info) {
+    for (const auto &trx_info : info.path) {
+      tables->table->field[RDB_DEADLOCK_FIELD::DEADLOCK_ID]->store(id, true);
+      tables->table->field[RDB_DEADLOCK_FIELD::TRANSACTION_ID]->store(
+          trx_info.trx_id, true);
+      tables->table->field[RDB_DEADLOCK_FIELD::CF_NAME]->store(
+          trx_info.cf_name.c_str(), trx_info.cf_name.length(),
+          system_charset_info);
+      tables->table->field[RDB_DEADLOCK_FIELD::WAITING_KEY]->store(
+          trx_info.waiting_key.c_str(), trx_info.waiting_key.length(),
+          system_charset_info);
+      if (trx_info.exclusive_lock) {
+        tables->table->field[RDB_DEADLOCK_FIELD::LOCK_TYPE]->store(
+            str_exclusive.c_str(), str_exclusive.length(), system_charset_info);
+      } else {
+        tables->table->field[RDB_DEADLOCK_FIELD::LOCK_TYPE]->store(
+            str_shared.c_str(), str_shared.length(), system_charset_info);
+      }
+      tables->table->field[RDB_DEADLOCK_FIELD::INDEX_NAME]->store(
+          trx_info.index_name.c_str(), trx_info.index_name.length(),
+          system_charset_info);
+      tables->table->field[RDB_DEADLOCK_FIELD::TABLE_NAME]->store(
+          trx_info.table_name.c_str(), trx_info.table_name.length(),
+          system_charset_info);
+      tables->table->field[RDB_DEADLOCK_FIELD::ROLLED_BACK]->store(
+          trx_info.trx_id == info.victim_trx_id, true);
+
+      /* Tell MySQL about this row in the virtual table */
+      ret = static_cast<int>(
+          my_core::schema_table_store_record(thd, tables->table));
+
+      if (ret != 0) {
+        break;
+      }
+    }
+    id++;
+  }
+
+  DBUG_RETURN(ret);
+}
+
+/* Initialize the information_schema.rocksdb_trx_info virtual table */
+static int rdb_i_s_deadlock_info_init(void *const p) {
+  DBUG_ENTER_FUNC();
+
+  DBUG_ASSERT(p != nullptr);
+
+  my_core::ST_SCHEMA_TABLE *schema;
+
+  schema = (my_core::ST_SCHEMA_TABLE *)p;
+
+  schema->fields_info = rdb_i_s_deadlock_info_fields_info;
+  schema->fill_table = rdb_i_s_deadlock_info_fill_table;
 
   DBUG_RETURN(0);
 }
@@ -1615,6 +1827,22 @@ struct st_mysql_plugin rdb_i_s_trx_info = {
     "RocksDB transaction information",
     PLUGIN_LICENSE_GPL,
     rdb_i_s_trx_info_init,
+    nullptr,
+    0x0001,  /* version number (0.1) */
+    nullptr, /* status variables */
+    nullptr, /* system variables */
+    nullptr, /* config options */
+    0,       /* flags */
+};
+
+struct st_mysql_plugin rdb_i_s_deadlock_info = {
+    MYSQL_INFORMATION_SCHEMA_PLUGIN,
+    &rdb_i_s_info,
+    "ROCKSDB_DEADLOCK",
+    "Facebook",
+    "RocksDB transaction information",
+    PLUGIN_LICENSE_GPL,
+    rdb_i_s_deadlock_info_init,
     nullptr,
     0x0001,  /* version number (0.1) */
     nullptr, /* status variables */

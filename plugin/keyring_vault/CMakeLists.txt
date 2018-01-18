@@ -30,11 +30,13 @@ INCLUDE_DIRECTORIES(${BOOST_PATCHES_DIR})
 INCLUDE_DIRECTORIES(SYSTEM ${BOOST_INCLUDE_DIR} ${CURL_INCLUDE_DIRS})
 
 INCLUDE_DIRECTORIES(${CMAKE_SOURCE_DIR}/plugin/keyring/common)
+INCLUDE_DIRECTORIES(${CMAKE_SOURCE_DIR}/plugin/keyring)
 
 MYSQL_ADD_PLUGIN(keyring_vault
                  ${CMAKE_SOURCE_DIR}/plugin/keyring/common/keyring_key.cc
                  ${CMAKE_SOURCE_DIR}/plugin/keyring/common/keys_container.cc
                  ${CMAKE_SOURCE_DIR}/plugin/keyring/common/keyring_impl.cc
+                 ${CMAKE_SOURCE_DIR}/plugin/keyring/file_io.cc
                  vault_io.cc
                  vault_key.cc
                  vault_base64.cc
@@ -48,6 +50,9 @@ MYSQL_ADD_PLUGIN(keyring_vault
                  LINK_LIBRARIES ${CURL_LIBRARY}
                  MODULE_ONLY
                  MODULE_OUTPUT_NAME "keyring_vault")
+
+get_property(keyring_vault_link_flags TARGET keyring_vault PROPERTY LINK_FLAGS)
+set_property(TARGET keyring_vault PROPERTY LINK_FLAGS "${keyring_vault_link_flags} -Wl,--version-script=${CMAKE_SOURCE_DIR}/plugin/keyring_vault/keyring_vault.version")
 
 IF(WITH_KEYRING_VAULT_TEST)
   ADD_SUBDIRECTORY(keyring_vault-test)

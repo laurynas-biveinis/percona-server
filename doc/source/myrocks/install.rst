@@ -4,8 +4,6 @@
 Percona MyRocks Installation Guide
 ==================================
 
-.. warning:: Percona MyRocks is currently experimental
-   and not recommended for production.
 
 Percona MyRocks is distributed as a separate package
 that can be enabled as a plugin for Percona Server 5.7 and later versions.
@@ -41,8 +39,6 @@ It is recommended to install Percona software from official repositories:
 1. Configure Percona repositories as described in
    `Percona Software Repositories Documentation
    <https://www.percona.com/doc/percona-repo-config/index.html>`_.
-
-   .. note:: Enable experimental repositories!
 
 #. Install Percona MyRocks using the corresponding package manager:
 
