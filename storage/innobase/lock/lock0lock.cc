@@ -1628,8 +1628,14 @@ update_dep_size(
 	trx->size_updated = lock_sys->dep_size_updated;
 
 #ifdef UNIV_DEBUG
+	/* With deadlock detection off, transaction weight graph may be cyclic,
+	resulting in transaction weight errors. Allow negative weights then. */
+	if (!innobase_deadlock_detect && !lock_sys->deadlock_detect_off_seen)
+		lock_sys->deadlock_detect_off_seen = true;
+
 	if (innodb_lock_schedule_algorithm
-	    == INNODB_LOCK_SCHEDULE_ALGORITHM_VATS_STRICT) {
+	    == INNODB_LOCK_SCHEDULE_ALGORITHM_VATS_STRICT
+	    && !lock_sys->deadlock_detect_off_seen) {
 
 		ut_ad(static_cast<long>(trx->dep_size) + size_delta >= 0);
 	}

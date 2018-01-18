@@ -1039,6 +1039,11 @@ struct lock_sys_t{
 	bool		timeout_thread_active;	/*!< True if the timeout thread
 						is running */
 	uint64_t	dep_size_updated;
+#ifdef UNIV_DEBUG
+	bool		deadlock_detect_off_seen;/*!< true if VATS transaction
+						 weight graph was ever updated
+						 with deadlock detection off */
+#endif
 };
 
 /*************************************************************//**
