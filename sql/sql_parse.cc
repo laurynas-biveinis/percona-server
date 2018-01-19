@@ -3452,6 +3452,7 @@ mysql_execute_command(THD *thd, bool first_level)
     /* DDL and binlog write order are protected by metadata locks. */
     res= mysql_rm_table(thd, first_table, lex->drop_if_exists,
 			lex->drop_temporary);
+    DEBUG_SYNC(thd, "after_mysql_rm_table");
     /* when dropping temporary tables if @@session_track_state_change is ON then
        send the boolean tracker in the OK packet */
     if(!res && lex->drop_temporary)
