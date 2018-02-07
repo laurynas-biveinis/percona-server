@@ -1673,6 +1673,7 @@ update_dep_size(
 	ulint   heap_no)
 {
 	ut_ad(lock_mutex_own());
+	ut_ad(in_lock->is_record_lock());
 	ut_ad(in_lock->trx->state == TRX_STATE_ACTIVE
 	      || in_lock->trx->state == TRX_STATE_PREPARED);
 	// TODO: rollback might still call this legitimately through RecLock::lock_add
