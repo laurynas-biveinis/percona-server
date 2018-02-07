@@ -50,6 +50,7 @@ MYSQL_ADD_PLUGIN(keyring_vault
                  MODULE_ONLY
                  MODULE_OUTPUT_NAME "keyring_vault")
 
+# We limit symbols exported on Linux to only those required by server.
 IF(LINK_FLAG_NO_UNDEFINED)
   GET_PROPERTY(keyring_vault_link_flags TARGET keyring_vault PROPERTY LINK_FLAGS)
   SET_PROPERTY(TARGET keyring_vault PROPERTY LINK_FLAGS "${keyring_vault_link_flags} -Wl,--version-script=${CMAKE_SOURCE_DIR}/plugin/keyring_vault/keyring_vault.version")
