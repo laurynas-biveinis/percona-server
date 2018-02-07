@@ -1,0 +1,16 @@
+#
+# Regression tests for InnoDB locking discovered by VATS that apply
+# to all lock scheduling policies
+#
+#
+# lock_remove_all_on_table_for_trx needs to grant waiting locks
+#
+CREATE TABLE t1 (a INT, b INT) ENGINE=InnoDB;
+INSERT INTO t1 VALUES (1, 1), (1, 2);
+CREATE TABLE t2 (PRIMARY KEY (a)) SELECT * FROM t1;
+ERROR 23000: Duplicate entry '1' for key 'PRIMARY'
+BEGIN;
+CREATE TEMPORARY TABLE t2 (PRIMARY KEY (a)) SELECT * FROM t1;
+ERROR 23000: Duplicate entry '1' for key 'PRIMARY'
+COMMIT;
+DROP TABLE t1;

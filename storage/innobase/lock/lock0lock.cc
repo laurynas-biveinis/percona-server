@@ -4884,11 +4884,7 @@ lock_assert_no_rec_locks_in_trx(const trx_t& trx)
 		if (lock_get_type_low(lock) != LOCK_REC)
 			continue;
 
-		// If this ever fires in the future due to
-		// administrative statements not implicitly committing
-		// anymore or similar, add code to iterate through
-		// remaining record locks and update their transaction
-		// weights.
+		std::cerr << *lock;
 		ut_error;
 	}
 }
@@ -4910,9 +4906,7 @@ lock_remove_all_on_table_for_trx(
 {
 	lock_t*		lock;
 	lock_t*		prev_lock;
-#ifdef UNIV_DEBUG
-	unsigned long	rec_locks_removed = 0;
-#endif
+	ulong		rec_locks_removed = 0;
 
 	ut_ad(lock_mutex_own());
 
@@ -4927,7 +4921,7 @@ lock_remove_all_on_table_for_trx(
 			ut_a(!lock_get_wait(lock));
 
 			lock_rec_discard(lock);
-			ut_d(rec_locks_removed++;);
+			rec_locks_removed++;
 		} else if (lock_get_type_low(lock) & LOCK_TABLE
 			   && lock->un_member.tab_lock.table == table
 			   && (remove_also_table_sx_locks
@@ -4940,12 +4934,43 @@ lock_remove_all_on_table_for_trx(
 		}
 	}
 
-#ifdef UNIV_DEBUG
-	if (rec_locks_removed > 0) {
+	if ((rec_locks_removed == 0) || !is_vats_enabled())
+		return;
 
-		lock_assert_no_rec_locks_in_trx(*trx);
+	lock_sys->dep_size_updated++;
+	for (lock = UT_LIST_GET_LAST(trx->lock.trx_locks);
+	     lock != NULL;
+	     lock = prev_lock) {
+
+		prev_lock = UT_LIST_GET_PREV(trx_locks, lock);
+
+		if (lock_get_type_low(lock) == LOCK_REC) {
+
+			ut_a(!lock_get_wait(lock));
+
+			ulint space = lock->un_member.rec_lock.space;
+			ulint page_no = lock->un_member.rec_lock.page_no;
+			ulint heap_no = lock_rec_find_set_bit(lock);
+			hash_table_t *lock_hash
+				= lock_hash_get(lock->type_mode);
+
+			lock_t *wait_lock = lock_rec_get_first(lock_hash,
+							       space,
+							       page_no,
+							       heap_no);
+			for (; wait_lock;
+			     wait_lock = lock_rec_get_next(heap_no,
+							   wait_lock)) {
+
+				if (!lock_get_wait(wait_lock)
+				    || trx == wait_lock->trx)
+					continue;
+
+				update_dep_size(wait_lock->trx,
+						-rec_locks_removed);
+			}
+		}
 	}
-#endif
 }
 
 /*******************************************************************//**

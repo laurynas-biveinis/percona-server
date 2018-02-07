@@ -1,0 +1,23 @@
+--source include/have_innodb.inc
+
+--echo #
+--echo # Regression tests for InnoDB locking discovered by VATS that apply
+--echo # to all lock scheduling policies
+--echo #
+
+--echo #
+--echo # lock_remove_all_on_table_for_trx needs to grant waiting locks
+--echo #
+
+CREATE TABLE t1 (a INT, b INT) ENGINE=InnoDB;
+INSERT INTO t1 VALUES (1, 1), (1, 2);
+
+--error ER_DUP_ENTRY
+CREATE TABLE t2 (PRIMARY KEY (a)) SELECT * FROM t1;
+
+BEGIN;
+--error ER_DUP_ENTRY
+CREATE TEMPORARY TABLE t2 (PRIMARY KEY (a)) SELECT * FROM t1;
+COMMIT;
+
+DROP TABLE t1;
