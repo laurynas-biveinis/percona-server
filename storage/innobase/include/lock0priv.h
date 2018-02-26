@@ -974,7 +974,8 @@ waiting behind it. */
 void
 lock_cancel_waiting_and_release(
 /*============================*/
-	lock_t*	lock);	/*!< in/out: waiting lock request */
+	lock_t*		lock,	/*!< in/out: waiting lock request */
+	const trx_t*	joiner_trx);
 
 /*********************************************************************//**
 Checks if some transaction has an implicit x-lock on a record in a clustered

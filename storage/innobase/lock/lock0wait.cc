@@ -532,7 +532,8 @@ lock_wait_check_and_cancel(
 
 			ut_a(trx->lock.que_state == TRX_QUE_LOCK_WAIT);
 
-			lock_cancel_waiting_and_release(trx->lock.wait_lock);
+			lock_cancel_waiting_and_release(trx->lock.wait_lock,
+							NULL);
 		}
 
 		lock_mutex_exit();

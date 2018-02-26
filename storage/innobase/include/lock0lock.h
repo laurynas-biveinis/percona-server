@@ -321,20 +321,6 @@ lock_rec_enqueue_waiting(
 	lock_prdt_t*		prdt);	/*!< in: Minimum Bounding Box */
 
 /*************************************************************//**
-Removes a record lock request, waiting or granted, from the queue and
-grants locks to other transactions in the queue if they now are entitled
-to a lock. NOTE: all record locks contained in in_lock are removed. */
-void
-lock_rec_dequeue_from_page(
-/*=======================*/
-        lock_t*         in_lock);        /*!< in: record lock object: all
-                                        record locks which are contained in
-                                        this lock object are removed;
-                                        transactions waiting behind will
-                                        get their lock requests granted,
-                                        if they are now qualified to it */
-
-/*************************************************************//**
 Moves the locks of a record to another record and resets the lock bits of
 the donating record. */
 UNIV_INLINE

@@ -1597,8 +1597,9 @@ lock_rec_insert_to_head(
 static
 void
 update_dep_size(
-	trx_t  *trx,
-	long    size_delta)
+	trx_t		*trx,
+	long		size_delta,
+	const trx_t	*joiner_trx)
 {
 	ut_ad(lock_mutex_own());
 
@@ -1647,7 +1648,7 @@ update_dep_size(
 	}
 
 	wait_lock = trx->lock.wait_lock;
-	if (wait_lock == NULL) {
+	if (wait_lock == NULL || trx == joiner_trx) {
 
 		return;
 	}
@@ -1660,8 +1661,8 @@ update_dep_size(
 		 lock != NULL;
 		 lock = lock_rec_get_next(heap_no, lock)) {
 		if (!lock_get_wait(lock)
-			&& trx != lock->trx) {
-			update_dep_size(lock->trx, size_delta);
+		    && trx != lock->trx) {
+			update_dep_size(lock->trx, size_delta, joiner_trx);
 		}
 	}
 }
@@ -1704,7 +1705,9 @@ update_dep_size(
 			 lock = lock_rec_get_next(heap_no, lock)) {
 			if (!lock_get_wait(lock)
 				&& in_lock->trx != lock->trx) {
-				update_dep_size(lock->trx, in_lock->trx->dep_size + 1);
+				update_dep_size(lock->trx,
+						in_lock->trx->dep_size + 1,
+						NULL);
 			}
 		}
 	} else {
@@ -1717,7 +1720,7 @@ update_dep_size(
 				total_size_delta += lock->trx->dep_size + 1;
 			}
 		}
-		update_dep_size(in_lock->trx, total_size_delta);
+		update_dep_size(in_lock->trx, total_size_delta, NULL);
 	}
 }
 
@@ -2643,7 +2646,8 @@ RecLock::make_trx_hit_list(
 				   << " transaction (ID): " << trx->id;
 #endif /* UNIV_DEBUG */
 			trx->lock.was_chosen_as_deadlock_victim = true;
-			lock_cancel_waiting_and_release(trx->lock.wait_lock);
+			lock_cancel_waiting_and_release(trx->lock.wait_lock,
+							NULL);
 			trx_mutex_exit(trx);
 			continue;
 		}
@@ -2720,9 +2724,10 @@ lock_rec_has_to_wait_granted(
 static
 void
 vats_grant(
-	hash_table_t *lock_hash,
-    lock_t *released_lock,
-    ulint   heap_no)
+	hash_table_t	*lock_hash,
+	lock_t		*released_lock,
+	ulint		heap_no,
+	const trx_t	*joiner_trx)
 {
 	ut_ad(lock_mutex_own());
 
@@ -2798,7 +2803,8 @@ vats_grant(
 		}
 		ut_ad(dep_size_compensate >= 0);
 		update_dep_size(lock->trx,
-				sub_dep_size_total + dep_size_compensate);
+				sub_dep_size_total + dep_size_compensate,
+				joiner_trx);
 	}
 
 	for (i = 0; i < new_granted.size(); ++i) {
@@ -2816,7 +2822,8 @@ vats_grant(
 		}
 		ut_ad(dep_size_compensate <= 0);
 		update_dep_size(lock->trx,
-				add_dep_size_total + dep_size_compensate);
+				add_dep_size_total + dep_size_compensate,
+				joiner_trx);
 	}
 }
 
@@ -2824,15 +2831,17 @@ vats_grant(
 Removes a record lock request, waiting or granted, from the queue and
 grants locks to other transactions in the queue if they now are entitled
 to a lock. NOTE: all record locks contained in in_lock are removed. */
+static
 void
 lock_rec_dequeue_from_page(
 /*=======================*/
-	lock_t*		in_lock)	/*!< in: record lock object: all
+	lock_t*		in_lock,	/*!< in: record lock object: all
 					record locks which are contained in
 					this lock object are removed;
 					transactions waiting behind will
 					get their lock requests granted,
 					if they are now qualified to it */
+	const trx_t*	joiner_trx)
 {
     ulint		space;
     ulint		page_no;
@@ -2887,7 +2896,7 @@ lock_rec_dequeue_from_page(
 			if (!lock_rec_get_nth_bit(in_lock, heap_no)) {
 				continue;
 			}
-			vats_grant(lock_hash, in_lock, heap_no);
+			vats_grant(lock_hash, in_lock, heap_no, joiner_trx);
 		}
 	}
 }
@@ -4700,7 +4709,7 @@ released:
 			}
 		}
 	} else {
-		vats_grant(lock_sys->rec_hash, lock, heap_no);
+		vats_grant(lock_sys->rec_hash, lock, heap_no, NULL);
 	}
 
 	lock_mutex_exit();
@@ -4773,7 +4782,7 @@ lock_release(
 
 		if (lock_get_type_low(lock) == LOCK_REC) {
 
-			lock_rec_dequeue_from_page(lock);
+			lock_rec_dequeue_from_page(lock, NULL);
 		} else {
 			dict_table_t*	table;
 
@@ -4967,7 +4976,7 @@ lock_remove_all_on_table_for_trx(
 					continue;
 
 				update_dep_size(wait_lock->trx,
-						-rec_locks_removed);
+						-rec_locks_removed, NULL);
 			}
 		}
 	}
@@ -7109,7 +7118,8 @@ waiting behind it. */
 void
 lock_cancel_waiting_and_release(
 /*============================*/
-	lock_t*	lock)	/*!< in/out: waiting lock request */
+	lock_t*		lock,	/*!< in/out: waiting lock request */
+	const trx_t*	joiner_trx)
 {
 	que_thr_t*	thr;
 
@@ -7120,7 +7130,7 @@ lock_cancel_waiting_and_release(
 
 	if (lock_get_type_low(lock) == LOCK_REC) {
 
-		lock_rec_dequeue_from_page(lock);
+		lock_rec_dequeue_from_page(lock, joiner_trx);
 	} else {
 		ut_ad(lock_get_type_low(lock) & LOCK_TABLE);
 
@@ -7324,7 +7334,7 @@ lock_trx_handle_wait(
 	if (trx->lock.was_chosen_as_deadlock_victim) {
 		err = DB_DEADLOCK;
 	} else if (trx->lock.wait_lock != NULL) {
-		lock_cancel_waiting_and_release(trx->lock.wait_lock);
+		lock_cancel_waiting_and_release(trx->lock.wait_lock, NULL);
 		err = DB_LOCK_WAIT;
 	} else {
 		/* The lock was probably granted before we got here. */
@@ -7934,7 +7944,7 @@ DeadlockChecker::trx_rollback()
 
 	trx->lock.was_chosen_as_deadlock_victim = true;
 
-	lock_cancel_waiting_and_release(trx->lock.wait_lock);
+	lock_cancel_waiting_and_release(trx->lock.wait_lock, m_start);
 
 	trx_mutex_exit(trx);
 }
