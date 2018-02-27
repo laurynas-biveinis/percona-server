@@ -20620,6 +20620,7 @@ innodb_srv_empty_free_list_algorithm_validate(
 	return(0);
 }
 
+#ifdef UNIV_DEBUG
 /** Validate innodb_lock_schedule_algorithm change */
 static
 int
@@ -20629,7 +20630,6 @@ innodb_lock_schedule_algorithm_validate(
 	void*				save,
 	struct st_mysql_value*		value)
 {
-#ifdef UNIV_DEBUG
 	char	buf[STRING_BUFFER_USUAL_SIZE];
 	int	buf_len = sizeof(buf);
 	const char* new_alg_name = value->val_str(value, buf, &buf_len);
@@ -20637,15 +20637,22 @@ innodb_lock_schedule_algorithm_validate(
 	const bool current_alg_vats_strict
 		= (innodb_lock_schedule_algorithm
 		   == INNODB_LOCK_SCHEDULE_ALGORITHM_VATS_STRICT);
+	int new_alg = find_type(new_alg_name,
+				&innodb_lock_schedule_algorithm_typelib,
+				0);
+	ut_ad(new_alg > 0);
+	new_alg--;
+
 	const bool new_alg_vats_strict
-		= !innobase_strcasecmp(new_alg_name, "vats_strict");
+		= new_alg == INNODB_LOCK_SCHEDULE_ALGORITHM_VATS_STRICT;
 
-	return current_alg_vats_strict != new_alg_vats_strict;
-#else
+	if (current_alg_vats_strict != new_alg_vats_strict)
+		return 1;
+
+	*reinterpret_cast<ulong *>(save) = static_cast<ulong>(new_alg);
 	return 0;
-#endif
 }
-
+#endif
 
 /** Update the innodb_log_checksums parameter.
 @param[in]	thd	thread handle
@@ -21175,7 +21182,12 @@ static MYSQL_SYSVAR_ENUM(lock_schedule_algorithm, innodb_lock_schedule_algorithm
   " VATS_STRICT"
   " for debug builds only, same as VATS, but forbidden to change to or from"
   " dynamically. Enables extra checks.",
-  innodb_lock_schedule_algorithm_validate, NULL,
+#ifdef UNIV_DEBUG
+  innodb_lock_schedule_algorithm_validate,
+#else
+  NULL,
+#endif
+  NULL,
   INNODB_LOCK_SCHEDULE_ALGORITHM_VATS,
   &innodb_lock_schedule_algorithm_typelib);
 

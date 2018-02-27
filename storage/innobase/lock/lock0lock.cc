@@ -1521,7 +1521,8 @@ has_higher_priority(
 	if (!t1_high_prio && t2_high_prio)
 		return false;
 
-	ut_ad(t1_high_prio && t2_high_prio || !t1_high_prio && !t2_high_prio);
+	ut_ad((t1_high_prio && t2_high_prio)
+	      || (!t1_high_prio && !t2_high_prio));
 
 	if (lock1_seq.first->trx->dep_size != lock2_seq.first->trx->dep_size)
 	{
