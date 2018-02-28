@@ -448,10 +448,16 @@ struct Encryption {
         static const char* to_string(Type type)
 		MY_ATTRIBUTE((warn_unused_result));
 
-        /** Check if the string is "empty" or "none".
-        @param[in]      algorithm       Encryption algorithm to check
-        @return true if no algorithm requested */
+	/** Check if the string is "" or "n".
+	@param[in]      algorithm       Encryption algorithm to check
+	@return true if no algorithm requested */
 	static bool is_none(const char* algorithm)
+		MY_ATTRIBUTE((warn_unused_result));
+
+	/** Check if the NO algorithm was explicitly specified.
+	@param[in]      algorithm       Encryption algorithm to check
+	@return true if no algorithm explicitly requested */
+	static bool none_explicitly_specified(const char* algorithm)
 		MY_ATTRIBUTE((warn_unused_result));
 
         /** Generate random encryption value for key and iv.
@@ -513,6 +519,11 @@ struct Encryption {
 		byte*			dst,
 		ulint			dst_len)
 		MY_ATTRIBUTE((warn_unused_result));
+
+#ifndef UNIV_INNOCHECKSUM
+	/** Check if keyring plugin loaded. */
+	static bool MY_ATTRIBUTE((warn_unused_result)) check_keyring();
+#endif
 
 	/** Encrypt type */
 	Type			m_type;
@@ -1197,12 +1208,12 @@ do {									\
 		state, locker, key, op, name,				\
 		src_file, static_cast<uint>(src_line))			\
 
-# define register_pfs_file_rename_end(locker, result)			\
+# define register_pfs_file_rename_end(locker, from, to, result)		\
 do {									\
 	if (locker != NULL) {						\
 		 PSI_FILE_CALL(						\
-			end_file_open_wait)(				\
-			locker, result);				\
+			end_file_rename_wait)(				\
+			locker, from, to, result);			\
 	}								\
 }while(0)
 

@@ -1,5 +1,5 @@
 /*
-   Copyright (c) 2000, 2016, Oracle and/or its affiliates. All rights reserved.
+   Copyright (c) 2000, 2017, Oracle and/or its affiliates. All rights reserved.
 
    This program is free software; you can redistribute it and/or modify
    it under the terms of the GNU General Public License as published by
@@ -284,6 +284,25 @@ bool mysql_create_frm(THD *thd, const char *file_name,
                              key_buff_length, MYF(0));
   key_info_length= pack_keys(keybuff, keys, key_info, data_offset);
 
+  /* key_info_length is currently stored in 2 bytes */
+  if (key_info_length > 65535U)
+  {
+    char *real_table_name= (char*) table;
+    List_iterator<Create_field> it(create_fields);
+    Create_field *field;
+    while ((field=it++))
+    {
+      if (field->field && field->field->table &&
+         (real_table_name= field->field->table->s->table_name.str))
+        break;
+    }
+    my_printf_error(ER_UNKNOWN_ERROR,
+                    "Index information size for the table %s.%s exceeds the "
+                    "maximum limit (Max: 2 bytes). Please recreate indexes "
+                    "accordingly.", MYF(0), db, real_table_name);
+    goto err;
+  }
+
   /*
     Ensure that there are no forms in this newly created form file.
     Even if the form file exists, create_frm must truncate it to
@@ -518,6 +537,8 @@ int rea_create_table(THD *thd, const char *path,
 
   char frm_name[FN_REFLEN + 1];
   strxnmov(frm_name, sizeof(frm_name) - 1, path, reg_ext, NullS);
+
+  file->adjust_create_info_for_frm(create_info);
 
   if (mysql_create_frm(thd, frm_name, db, table_name, create_info,
                        create_fields, keys, key_info, file))

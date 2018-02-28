@@ -70,6 +70,8 @@ typedef my_bool (*qc_engine_callback)(THD *thd, char *table_key,
 #define HA_ADMIN_NEEDS_CHECK    -12
 /** Needs ALTER TABLE t UPGRADE PARTITIONING. */
 #define HA_ADMIN_NEEDS_UPG_PART -13
+/** Needs to dump and re-create to fix pre 5.0 decimal types */
+#define HA_ADMIN_NEEDS_DUMP_UPGRADE -14
 
 /**
    Return values for check_if_supported_inplace_alter().
@@ -3007,6 +3009,15 @@ public:
   */
   virtual bool has_gap_locks() const { return false; }
 
+  /**
+    Query storage engine to see if it can support handling specific replication
+    method in its current configuration.
+  */
+  virtual bool rpl_can_handle_stm_event() const
+  {
+    return true;
+  }
+
 protected:
   static bool is_using_full_key(key_part_map keypart_map, uint actual_key_parts);
   bool is_using_full_unique_key(uint active_index,
@@ -3159,7 +3170,16 @@ public:
       insert_id_for_cur_row;
   }
 
+  /*
+     This function allows the storage engine to adust the create_info before
+     the frm is written based on it.
+     This can be used for example to modify the create statement based on a
+     storage engine specific setting.
+   */
+  virtual void adjust_create_info_for_frm(HA_CREATE_INFO *create_info) {}
+
   virtual void update_create_info(HA_CREATE_INFO *create_info) {}
+
   int check_old_types();
   virtual int assign_to_keycache(THD* thd, HA_CHECK_OPT* check_opt)
   { return HA_ADMIN_NOT_IMPLEMENTED; }

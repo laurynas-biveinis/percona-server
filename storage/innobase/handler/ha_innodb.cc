@@ -1104,6 +1104,14 @@ static SHOW_VAR innodb_status_variables[]= {
   {"scan_deleted_recs_size",
   (char*) &export_vars.innodb_fragmentation_stats.scan_deleted_recs_size,
   SHOW_LONG, SHOW_SCOPE_GLOBAL},
+  {"encryption_n_merge_blocks_encrypted",
+  (char*) &export_vars.innodb_n_merge_blocks_encrypted,   SHOW_LONGLONG, SHOW_SCOPE_GLOBAL},
+  {"encryption_n_merge_blocks_decrypted",
+  (char*) &export_vars.innodb_n_merge_blocks_decrypted,   SHOW_LONGLONG, SHOW_SCOPE_GLOBAL},
+  {"encryption_n_rowlog_blocks_encrypted",
+  (char*) &export_vars.innodb_n_rowlog_blocks_encrypted,  SHOW_LONGLONG, SHOW_SCOPE_GLOBAL},
+  {"encryption_n_rowlog_blocks_decrypted",
+  (char*) &export_vars.innodb_n_rowlog_blocks_decrypted,  SHOW_LONGLONG, SHOW_SCOPE_GLOBAL},
   {NullS, NullS, SHOW_LONG, SHOW_SCOPE_GLOBAL}
 };
 
@@ -2698,6 +2706,16 @@ Encryption::is_none(const char* algorithm)
 	}
 
 	return(false);
+}
+
+/** Check if the NO algorithm was explicitly specified.
+@param[in]      algorithm       Encryption algorithm to check
+@return true if no algorithm explicitly requested */
+bool
+Encryption::none_explicitly_specified(const char* algorithm)
+{
+	return (algorithm != NULL && 
+	        innobase_strcasecmp(algorithm, "n") == 0);
 }
 
 /** Check the encryption option and set it
@@ -4497,6 +4515,14 @@ innobase_change_buffering_inited_ok:
 	test_row_raw_format_int();
 # endif /* HAVE_UT_CHRONO_T */
 #endif /* UNIV_ENABLE_UNIT_TEST_ROW_RAW_FORMAT_INT */
+
+#ifndef UNIV_HOTBACKUP
+#ifdef _WIN32
+	if (ut_win_init_time()) {
+		DBUG_RETURN(innobase_init_abort());
+	}
+#endif /* _WIN32 */
+#endif /* !UNIV_HOTBACKUP */
 
 	DBUG_RETURN(0);
 }
@@ -10690,7 +10716,7 @@ create_table_info_t::create_table_def()
 {
 	dict_table_t*	table;
 	ulint		n_cols;
-	dberr_t		err;
+	dberr_t		err = DB_SUCCESS;
 	ulint		col_type;
 	ulint		col_len;
 	ulint		nulls_allowed;
@@ -11014,6 +11040,9 @@ err_col:
 	needed in SYSTEM tables. */
 	if (dict_table_is_temporary(table)) {
 
+		fil_space_t* space = fil_space_get(srv_tmp_space.space_id());
+		bool force_encrypt = FSP_FLAGS_GET_ENCRYPTION(space->flags);
+
 		if (m_create_info->compress.length > 0) {
 
 			push_warning_printf(
@@ -11027,18 +11056,44 @@ err_col:
 			dict_mem_table_free(table);
 		} else if (m_create_info->encrypt_type.length > 0
 			   && !Encryption::is_none(
-				   m_create_info->encrypt_type.str)) {
+				   m_create_info->encrypt_type.str)
+			   && !force_encrypt) {
 
 			my_error(ER_TABLESPACE_CANNOT_ENCRYPT, MYF(0));
 			err = DB_UNSUPPORTED;
 			dict_mem_table_free(table);
 		} else {
+			if (force_encrypt) {
+				/* force encryption for temporary tables */
+				byte*			master_key = NULL;
+				ulint			master_key_id;
+				Encryption::Version	version;
 
-			/* Get a new table ID */
-			dict_table_assign_new_id(table, m_trx);
+				/* Check if keyring is ready. */
+				Encryption::get_master_key(&master_key_id,
+							   &master_key,
+							   &version);
 
-			/* Create temp tablespace if configured. */
-			err = dict_build_tablespace_for_table(table);
+				if (master_key == NULL) {
+					my_error(ER_CANNOT_FIND_KEY_IN_KEYRING,
+						 MYF(0));
+					err = DB_UNSUPPORTED;
+					dict_mem_table_free(table);
+				} else {
+					my_free(master_key);
+					DICT_TF2_FLAG_SET(table,
+							  DICT_TF2_ENCRYPTION);
+				}
+			}
+
+			if (err == DB_SUCCESS) {
+
+				/* Get a new table ID */
+				dict_table_assign_new_id(table, m_trx);
+
+				/* Create temp tablespace if configured. */
+				err = dict_build_tablespace_for_table(table);
+			}
 
 			if (err == DB_SUCCESS) {
 				/* Temp-table are maintained in memory and so
@@ -11198,6 +11253,12 @@ create_index(
 	/* Assert that "GEN_CLUST_INDEX" cannot be used as non-primary index */
 	ut_a(innobase_strcasecmp(key->name, innobase_index_reserve_name) != 0);
 
+	if(key->key_length == 0) {
+		my_error(ER_WRONG_KEY_COLUMN,
+			 MYF(0),
+			 key->key_part->field->field_name);
+		DBUG_RETURN(ER_WRONG_KEY_COLUMN);
+	}
 	ind_type = 0;
 	if (key->flags & HA_SPATIAL) {
 		ind_type = DICT_SPATIAL;
@@ -11724,6 +11785,13 @@ create_table_info_t::create_option_compression_is_valid()
 	return(true);
 }
 
+enum srv_encrypt_tables_values {
+  SRV_ENCRYPT_TABLES_OFF = 0,
+  SRV_ENCRYPT_TABLES_ON = 1,
+  SRV_ENCRYPT_TABLES_FORCE = 2,
+};
+static const char* srv_encrypt_tables_names[] = { "OFF", "ON", "FORCE", 0 };
+
 /** Validate ENCRYPTION option.
 @return true if valid, false if not. */
 bool
@@ -11744,6 +11812,14 @@ create_table_info_t::create_option_encryption_is_valid() const
 
 	bool table_is_encrypted =
 		!Encryption::is_none(m_create_info->encrypt_type.str);
+
+	if (srv_encrypt_tables == SRV_ENCRYPT_TABLES_FORCE
+	  && Encryption::none_explicitly_specified(m_create_info->encrypt_type.str)) {
+		my_printf_error(ER_INVALID_ENCRYPTION_OPTION,
+			"InnoDB: Only ENCRYPTED tables can be created with "
+			"innodb_encrypt_tables=FORCE.", MYF(0));
+		return(false);
+	}
 
 	if ((m_create_info->options & HA_LEX_CREATE_TMP_TABLE)
 		&& table_is_encrypted) {
@@ -11974,6 +12050,19 @@ create_table_info_t::create_options_are_invalid()
 	}
 
 	return(ret);
+}
+
+static const LEX_STRING yes_string = { C_STRING_WITH_LEN("Y") };
+void
+ha_innobase::adjust_create_info_for_frm(
+	HA_CREATE_INFO*	create_info)
+{
+		if (create_info->encrypt_type.length == 0
+			&& create_info->encrypt_type.str == NULL
+			&& srv_encrypt_tables != SRV_ENCRYPT_TABLES_OFF
+			) {
+				create_info->encrypt_type = yes_string;
+			}
 }
 
 /*****************************************************************//**
@@ -12340,7 +12429,7 @@ index_bad:
 			m_thd, Sql_condition::SL_WARNING,
 			ER_ILLEGAL_HA_CREATE_OPTION,
 			"InnoDB: assuming ROW_FORMAT=DYNAMIC.");
-		// fallthrough
+		// Fall through.
 	case ROW_TYPE_DYNAMIC:
 		innodb_row_format = REC_FORMAT_DYNAMIC;
 		break;
@@ -14033,6 +14122,7 @@ inline MY_ATTRIBUTE((warn_unused_result))
 dberr_t
 innobase_rename_table(
 /*==================*/
+	THD*		thd,	/*!< Connection thread handle */
 	trx_t*		trx,	/*!< in: transaction */
 	const char*	from,	/*!< in: old name of the table */
 	const char*	to)	/*!< in: new name of the table */
@@ -14067,6 +14157,7 @@ innobase_rename_table(
 
 	error = row_rename_table_for_mysql(norm_from, norm_to, trx, TRUE);
 
+	bool rename_parts = false;
 	if (error == DB_TABLE_NOT_FOUND) {
 		/* May be partitioned table, which consists of partitions
 		named table_name#P#partition_name[#SP#subpartition_name].
@@ -14075,8 +14166,9 @@ innobase_rename_table(
 		++trx->will_lock;
 		trx_set_dict_operation(trx, TRX_DICT_OP_INDEX);
 		trx_start_if_not_started(trx, true);
-		error = row_rename_partitions_for_mysql(norm_from, norm_to,
+		error = row_rename_partitions_for_mysql(thd, norm_from, norm_to,
 							trx);
+		rename_parts = true;
 		if (error == DB_TABLE_NOT_FOUND) {
 			ib::error() << "Table " << ut_get_name(trx, norm_from)
 				<< " does not exist in the InnoDB internal"
@@ -14090,7 +14182,7 @@ innobase_rename_table(
 	if (error != DB_SUCCESS) {
 		if (error == DB_TABLE_NOT_FOUND
 		    && innobase_get_lower_case_table_names() == 1) {
-			char*	is_part = NULL;
+			char*   is_part = NULL;
 #ifdef _WIN32
 			is_part = strstr(norm_from, "#p#");
 #else
@@ -14141,6 +14233,20 @@ innobase_rename_table(
 
 	row_mysql_unlock_data_dictionary(trx);
 
+	if (error == DB_SUCCESS && !rename_parts) {
+                char    errstr[512];
+                error = dict_stats_rename_table(false,
+					        norm_from,
+						norm_to, errstr,
+						sizeof(errstr));
+                if (error != DB_SUCCESS) {
+                        ib::error() << errstr;
+                        push_warning(thd, Sql_condition::SL_WARNING,
+                                     ER_LOCK_WAIT_TIMEOUT, errstr);
+                }
+        }
+
+
 	/* Flush the log to reduce probability that the .frm
 	files and the InnoDB data dictionary get out-of-sync
 	if the user runs with innodb_flush_log_at_trx_commit = 0 */
@@ -14182,33 +14288,13 @@ ha_innobase::rename_table(
 	++trx->will_lock;
 	trx_set_dict_operation(trx, TRX_DICT_OP_INDEX);
 
-	dberr_t	error = innobase_rename_table(trx, from, to);
+	dberr_t	error = innobase_rename_table(thd, trx, from, to);
 
 	DEBUG_SYNC(thd, "after_innobase_rename_table");
 
 	innobase_commit_low(trx);
 
 	trx_free_for_mysql(trx);
-
-	if (error == DB_SUCCESS) {
-		char	norm_from[MAX_FULL_NAME_LEN];
-		char	norm_to[MAX_FULL_NAME_LEN];
-		char	errstr[512];
-		dberr_t	ret;
-
-		normalize_table_name(norm_from, from);
-		normalize_table_name(norm_to, to);
-
-		ret = dict_stats_rename_table(norm_from, norm_to,
-					      errstr, sizeof(errstr));
-
-		if (ret != DB_SUCCESS) {
-			ib::error() << errstr;
-
-			push_warning(thd, Sql_condition::SL_WARNING,
-				     ER_LOCK_WAIT_TIMEOUT, errstr);
-		}
-	}
 
 	/* Add a special case to handle the Duplicated Key error
 	and return DB_ERROR instead.
@@ -21057,6 +21143,22 @@ static MYSQL_SYSVAR_ULONG(autoextend_increment,
   "Data file autoextend increment in megabytes",
   NULL, NULL, 64L, 1L, 1000L, 0);
 
+static TYPELIB srv_encrypt_tables_typelib = {
+	array_elements(srv_encrypt_tables_names)-1, 0, srv_encrypt_tables_names,
+	NULL
+};
+static MYSQL_SYSVAR_ENUM(encrypt_tables, srv_encrypt_tables,
+			 PLUGIN_VAR_OPCMDARG,
+			 "Enable encryption for tables. "
+			 "When turned ON, all tables are created encrypted unless otherwise "
+			 "specified. When it's set to FORCE, only encrypted tables can be created."
+			 "The FORCE setting also disables non inplace alteration of unencrypted,"
+			 " tables without encrypting them in the process.",
+			 NULL,
+			 NULL,
+			 0,
+			 &srv_encrypt_tables_typelib);
+
 /** Validate the requested buffer pool size.  Also, reserve the necessary
 memory needed for buffer pool resize.
 @param[in]	thd	thread handle
@@ -21456,6 +21558,11 @@ static MYSQL_SYSVAR_STR(temp_data_file_path, innobase_temp_data_file_path,
   "Path to files and their sizes making temp-tablespace.",
   NULL, NULL, NULL);
 
+static MYSQL_SYSVAR_BOOL(temp_tablespace_encrypt, srv_tmp_tablespace_encrypt,
+  PLUGIN_VAR_OPCMDARG,
+  "Enable or disable encryption of temporary tablespace.",
+  NULL, NULL, FALSE);
+
 static MYSQL_SYSVAR_STR(undo_directory, srv_undo_dir,
   PLUGIN_VAR_RQCMDARG | PLUGIN_VAR_READONLY,
   "Directory where undo tablespace files live, this path can be absolute.",
@@ -21463,7 +21570,7 @@ static MYSQL_SYSVAR_STR(undo_directory, srv_undo_dir,
 
 static MYSQL_SYSVAR_ULONG(undo_tablespaces, srv_undo_tablespaces,
   PLUGIN_VAR_RQCMDARG | PLUGIN_VAR_READONLY,
-  "Number of undo tablespaces to use. ",
+  "Number of undo tablespaces to use. (deprecated)",
   NULL, NULL,
   0L,			/* Default seting */
   0L,			/* Minimum value */
@@ -21776,6 +21883,14 @@ static MYSQL_SYSVAR_BOOL(sync_debug, srv_sync_debug,
   PLUGIN_VAR_OPCMDARG | PLUGIN_VAR_READONLY,
   "Enable the sync debug checks",
   NULL, NULL, FALSE);
+
+static MYSQL_SYSVAR_ULONG(master_encrypt_debug,
+  srv_master_encrypt_debug,
+  PLUGIN_VAR_OPCMDARG,
+  "Set 1 to pause master thread in the middle of the enabling of "
+  "temporary tablespace encryption. Once paused, master thread will set it 2. "
+  "Change it back to 0 to resume master thread.",
+  NULL, NULL, 0, 0, UINT_MAX32, 0);
 #endif /* UNIV_DEBUG */
 
 const char *corrupt_table_action_names[]=
@@ -21817,6 +21932,11 @@ static MYSQL_SYSVAR_ULONG(compressed_columns_threshold,
   "Compress column data if its length exceeds this value. Default is 96",
   NULL, NULL, 96, 1, ~0UL, 0);
 
+static MYSQL_SYSVAR_BOOL(encrypt_online_alter_logs,
+  srv_encrypt_online_alter_logs, PLUGIN_VAR_NOCMDARG | PLUGIN_VAR_READONLY,
+  "Encrypt online alter logs.",
+  NULL, NULL, FALSE);
+
 static struct st_mysql_sys_var* innobase_system_variables[]= {
   MYSQL_SYSVAR(api_trx_level),
   MYSQL_SYSVAR(api_bk_commit_interval),
@@ -21845,6 +21965,7 @@ static struct st_mysql_sys_var* innobase_system_variables[]= {
   MYSQL_SYSVAR(kill_idle_transaction),
   MYSQL_SYSVAR(data_file_path),
   MYSQL_SYSVAR(temp_data_file_path),
+  MYSQL_SYSVAR(temp_tablespace_encrypt),
   MYSQL_SYSVAR(data_home_dir),
   MYSQL_SYSVAR(doublewrite),
   MYSQL_SYSVAR(stats_include_delete_marked),
@@ -22009,12 +22130,15 @@ static struct st_mysql_sys_var* innobase_system_variables[]= {
   MYSQL_SYSVAR(dict_stats_disabled_debug),
   MYSQL_SYSVAR(master_thread_disabled_debug),
   MYSQL_SYSVAR(sync_debug),
+  MYSQL_SYSVAR(master_encrypt_debug),
 #endif /* UNIV_DEBUG */
   MYSQL_SYSVAR(corrupt_table_action),
   MYSQL_SYSVAR(parallel_doublewrite_path),
   MYSQL_SYSVAR(compressed_columns_zip_level),
   MYSQL_SYSVAR(compressed_columns_threshold),
   MYSQL_SYSVAR(ft_ignore_stopwords),
+  MYSQL_SYSVAR(encrypt_online_alter_logs),
+  MYSQL_SYSVAR(encrypt_tables),
   NULL
 };
 
@@ -22870,6 +22994,7 @@ innodb_buffer_pool_size_validate(
 			"Cannot update innodb_buffer_pool_size,"
 			" because innodb_disable_resize_buffer_pool_debug"
 			" is set.");
+
 		ib::warn() << "Cannot update innodb_buffer_pool_size,"
 			" because innodb_disable_resize_buffer_pool_debug"
 			" is set.";
@@ -22907,12 +23032,21 @@ innodb_buffer_pool_size_validate(
 		return(1);
 	}
 
+	if (srv_buf_pool_size == static_cast<ulint>(intbuf)) {
+		/* nothing to do */
+		return(0);
+	}
+
 	ulint	requested_buf_pool_size
 		= buf_pool_size_align(static_cast<ulint>(intbuf));
 
 	*static_cast<longlong*>(save) = requested_buf_pool_size;
 
 	if (srv_buf_pool_size == requested_buf_pool_size) {
+		push_warning_printf(thd, Sql_condition::SL_WARNING,
+			ER_WRONG_ARGUMENTS,
+			"InnoDB: Cannot resize buffer pool to lesser than"
+			" chunk size of %lu bytes.", srv_buf_pool_chunk_unit);
 		/* nothing to do */
 		return(0);
 	}

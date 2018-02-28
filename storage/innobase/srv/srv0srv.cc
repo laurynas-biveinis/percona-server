@@ -64,6 +64,7 @@ Created 10/8/1995 Heikki Tuuri
 #include "que0que.h"
 #include "row0mysql.h"
 #include "row0trunc.h"
+#include "row0log.h"
 #include "srv0mon.h"
 #include "srv0srv.h"
 #include "srv0start.h"
@@ -155,6 +156,9 @@ unsigned long long	srv_max_undo_log_size;
 These logs reside in the temp tablespace.*/
 const ulong		srv_tmp_undo_logs = 32;
 
+/** Enable or disable encryption of temporary tablespace.*/
+my_bool	srv_tmp_tablespace_encrypt;
+
 /** Default undo tablespace size in UNIV_PAGEs count (10MB). */
 const ulint SRV_UNDO_TABLESPACE_SIZE_IN_PAGES =
 	((1024 * 1024) * 10) / UNIV_PAGE_SIZE_DEF;
@@ -207,6 +211,9 @@ ulonglong	srv_max_changed_pages = 0;
 ulong	srv_debug_compress;
 /** Used by SET GLOBAL innodb_master_thread_disabled_debug = X. */
 my_bool	srv_master_thread_disabled_debug;
+/** Pause master thread in the middle of enabling of temporary tablespace
+encryption */
+ulint srv_master_encrypt_debug;
 /** Event used to inform that master thread is disabled. */
 static os_event_t	srv_master_thread_disabled_event;
 /** Debug variable to find if any background threads are adding
@@ -396,6 +403,8 @@ ulong	srv_n_purge_threads = 4;
 
 /* the number of pages to purge in one batch */
 ulong	srv_purge_batch_size = 20;
+
+ulong srv_encrypt_tables = 0;
 
 /* Internal setting for "innodb_stats_method". Decides how InnoDB treats
 NULL value when collecting statistics. By default, it is set to
@@ -1766,6 +1775,18 @@ srv_export_innodb_status(void)
 
 	export_vars.innodb_available_undo_logs = srv_available_undo_logs;
 
+	export_vars.innodb_n_merge_blocks_encrypted =
+		srv_stats.n_merge_blocks_encrypted;
+
+	export_vars.innodb_n_merge_blocks_decrypted =
+		srv_stats.n_merge_blocks_decrypted;
+
+	export_vars.innodb_n_rowlog_blocks_encrypted =
+		srv_stats.n_rowlog_blocks_encrypted;
+
+	export_vars.innodb_n_rowlog_blocks_decrypted =
+		srv_stats.n_rowlog_blocks_decrypted;
+
 #ifdef UNIV_DEBUG
 	rw_lock_s_lock(&purge_sys->latch);
 	trx_id_t	up_limit_id;
@@ -2676,6 +2697,71 @@ func_exit:
 }
 
 /*********************************************************************//**
+Set temporary tablespace to be encrypted if global variable
+innodb_temp_tablespace_encrypt is TRUE. In case of failure, changes
+value of innodb_temp_tablespace_encrypt back to FALSE and logs error
+message. */
+static
+void
+srv_enable_temp_encryption_if_set()
+{
+	ut_ad(!srv_read_only_mode);
+
+	if (srv_shutdown_state != SRV_SHUTDOWN_NONE) {
+		return;
+	}
+
+	if (!srv_tmp_tablespace_encrypt) {
+		return;
+	}
+
+	if (is_shared_system_tablespace(srv_tmp_space.space_id())) {
+		/* there is no separate tablespace for temporary tables */
+		return;
+	}
+
+	fil_space_t* space = fil_space_get(srv_tmp_space.space_id());
+
+	ut_ad(fsp_is_system_temporary(space->id));
+
+	if (!FSP_FLAGS_GET_ENCRYPTION(space->flags)) {
+
+		/* Make sure the keyring is loaded. */
+		if (!Encryption::check_keyring()) {
+			srv_tmp_tablespace_encrypt = false;
+			ib::error() << "Can't set temporary tablespace "
+				    << "to be encrypted because "
+				    << "keyring plugin is not "
+				    << "available.";
+			return;
+		}
+
+		space->flags |= FSP_FLAGS_MASK_ENCRYPTION;
+
+		dberr_t	err = fil_set_encryption(space->id,
+			Encryption::AES, NULL, NULL);
+
+		ut_a(err == DB_SUCCESS);
+
+#ifdef UNIV_DEBUG
+		if (srv_master_encrypt_debug != 0) {
+			srv_master_encrypt_debug = 2;
+			while (srv_master_encrypt_debug != 0) {
+				os_thread_sleep(10000);
+			}
+		}
+#endif
+
+		if (!fsp_enable_encryption(srv_tmp_space.space_id())) {
+			srv_tmp_tablespace_encrypt = false;
+			ib::error() << "Can't set temporary tablespace "
+				    << "to be encrypted.";
+			return;
+		}
+	}
+}
+
+/*********************************************************************//**
 Puts master thread to sleep. At this point we are using polling to
 service various activities. Master thread sleeps for one second before
 checking the state of the server again */
@@ -2754,6 +2840,9 @@ loop:
 		} else {
 			srv_master_do_idle_tasks();
 		}
+
+		/* Enable temporary tablespace encryption if set */
+		srv_enable_temp_encryption_if_set();
 	}
 
 	while (srv_shutdown_state != SRV_SHUTDOWN_EXIT_THREADS
