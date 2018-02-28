@@ -3,6 +3,7 @@
 #
 --source include/have_debug.inc
 --source include/have_innodb.inc
+--source include/not_vats_strict.inc
 
 --echo # Test that vats_strict is inaccessible on a server started with a different value
 SELECT @@innodb_lock_schedule_algorithm;

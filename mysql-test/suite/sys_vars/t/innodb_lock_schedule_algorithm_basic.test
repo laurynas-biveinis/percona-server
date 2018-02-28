@@ -1,4 +1,5 @@
--- source include/have_innodb.inc
+--source include/have_innodb.inc
+--source include/not_vats_strict.inc
 
 SELECT @@global.innodb_lock_schedule_algorithm;
 
