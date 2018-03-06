@@ -1025,6 +1025,13 @@ struct lock_sys_t{
 	bool		timeout_thread_active;	/*!< True if the timeout thread
 						is running */
 	uint64_t	dep_size_updated;
+	uint64_t	dep_size_updated_at_fcfs_to_vats;	/*!< The value of dep_size_updted
+						at the time the scheduling algorithm is switched from
+						FCFS to VATS. Since we don't continue to update transactions'
+						dep_size when we use FCFS, we want to reset all transactions'
+						dep_size to 0 when the scheduling algorithm is switched back
+						to VATS. Any trx whose size_updated is smaller than this
+						value needs to have their dep_size reset to 0. */
 #ifdef UNIV_DEBUG
 	bool		deadlock_detect_off_seen;/*!< true if VATS transaction
 						 weight graph was ever updated

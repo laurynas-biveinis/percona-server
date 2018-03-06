@@ -21,3 +21,72 @@ CREATE TEMPORARY TABLE t2 (PRIMARY KEY (a)) SELECT * FROM t1;
 COMMIT;
 
 DROP TABLE t1;
+
+--echo #
+--echo # Test FCFS <-> VATS transitions
+--echo #
+
+CREATE TABLE t1 (a INT PRIMARY KEY) ENGINE=InnoDB;
+
+INSERT INTO t1 VALUES (1),(2),(3),(4),(5);
+
+BEGIN;
+SELECT a FROM t1 WHERE a = 1 FOR UPDATE;
+
+--source include/count_sessions.inc
+
+--connect con1,localhost,root
+BEGIN;
+SELECT a FROM t1 WHERE a = 2 FOR UPDATE;
+
+--connect con2,localhost,root
+
+# Changing the variable is forbidden if running with VATS_STRICT.
+# Accept this
+--error 0,ER_WRONG_VALUE_FOR_VAR
+SET @@GLOBAL.innodb_lock_schedule_algorithm = FCFS;
+
+BEGIN;
+send SELECT a FROM t1 WHERE a = 2 FOR UPDATE;
+
+--connect con3,localhost,root
+
+BEGIN;
+SELECT a FROM t1 WHERE a = 3 FOR UPDATE;
+send SELECT a FROM t1 WHERE a = 2 FOR UPDATE;
+
+--connect con4,localhost,root
+
+--error 0,ER_WRONG_VALUE_FOR_VAR
+SET @@GLOBAL.innodb_lock_schedule_algorithm = VATS;
+
+BEGIN;
+send SELECT a FROM t1 WHERE a = 1 FOR UPDATE;
+
+--connection default
+COMMIT;
+
+--connection con4
+reap;
+ROLLBACK;
+--disconnect con4
+
+--connection con1
+COMMIT;
+--disconnect con1
+
+--connection con2
+reap;
+ROLLBACK;
+--disconnect con2
+
+--connection con3
+reap;
+COMMIT;
+--disconnect con3
+
+--connection default
+
+DROP TABLE t1;
+
+--source include/wait_until_count_sessions.inc

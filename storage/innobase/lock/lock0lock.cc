@@ -464,6 +464,9 @@ lock_sys_create(
 	lock_sys->prdt_hash = hash_create(n_cells);
 	lock_sys->prdt_page_hash = hash_create(n_cells);
 
+	ut_ad(lock_sys->dep_size_updated == 0);
+	ut_ad(lock_sys->dep_size_updated_at_fcfs_to_vats == 0);
+
 	if (!srv_read_only_mode) {
 		lock_latest_err_file = os_file_create_tmpfile(NULL);
 		ut_a(lock_latest_err_file);
@@ -1499,6 +1502,37 @@ RecLock::lock_alloc(
 	return(lock);
 }
 
+/** Get the age of a transaction. Reset it to 0 when necessary.
+@param[in, out]	trx	Transaction to get age from
+@return the age of the transaction */
+MY_ATTRIBUTE((warn_unused_result))
+static
+ulong
+trx_get_dep_size(trx_t *trx)
+{
+	ut_ad(lock_mutex_own());
+	if (trx->size_updated <= lock_sys->dep_size_updated_at_fcfs_to_vats) {
+		trx->dep_size = 0;
+	}
+	return trx->dep_size;
+}
+
+/** Update the age of a transaction. Reset it to 0 before update when necessary
+@param[in, out]	trx	Transaction to update age for */
+static
+void
+trx_update_dep_size(
+	trx_t	*trx,
+	long	dep_size_delta)
+{
+	ut_ad(lock_mutex_own());
+	if (static_cast<long>(trx_get_dep_size(trx)) + dep_size_delta < 0) {
+		trx->dep_size = 0;
+	} else {
+		trx->dep_size += dep_size_delta;
+	}
+}
+
 /** Check if lock1 has higher priority than lock2. If one of the locks belongs
 to a high-priority transaction, it has a higher priority, otherwise transaction
 dependency sizes are compared. If they are equal, the original lock order is
@@ -1524,16 +1558,15 @@ has_higher_priority(
 	ut_ad((t1_high_prio && t2_high_prio)
 	      || (!t1_high_prio && !t2_high_prio));
 
-	if (lock1_seq.first->trx->dep_size != lock2_seq.first->trx->dep_size)
-	{
-
-		return lock1_seq.first->trx->dep_size
-			> lock2_seq.first->trx->dep_size;
-	}
+	const ulong t1_dep_size = trx_get_dep_size(lock1_seq.first->trx);
+	const ulong t2_dep_size = trx_get_dep_size(lock2_seq.first->trx);
+	if (t1_dep_size != t2_dep_size)
+		return t1_dep_size > t2_dep_size;
 
 	return lock1_seq.second < lock2_seq.second;
 }
 
+MY_ATTRIBUTE((warn_unused_result))
 static
 bool
 is_vats_enabled(void)
@@ -1547,6 +1580,7 @@ is_vats_enabled(void)
 		;
 }
 
+MY_ATTRIBUTE((warn_unused_result))
 static
 bool
 use_vats(const trx_t &trx)
@@ -1639,14 +1673,11 @@ update_dep_size(
 	    == INNODB_LOCK_SCHEDULE_ALGORITHM_VATS_STRICT
 	    && !lock_sys->deadlock_detect_off_seen) {
 
-		ut_ad(static_cast<long>(trx->dep_size) + size_delta >= 0);
+		ut_ad(static_cast<long>(trx_get_dep_size(trx)) + size_delta
+		      >= 0);
 	}
 #endif
-	if (static_cast<long>(trx->dep_size) + size_delta < 0) {
-		trx->dep_size = 0;
-	} else {
-		trx->dep_size += size_delta;
-	}
+	trx_update_dep_size(trx, size_delta);
 
 	wait_lock = trx->lock.wait_lock;
 	if (wait_lock == NULL || trx == joiner_trx) {
@@ -1707,7 +1738,7 @@ update_dep_size(
 			if (!lock_get_wait(lock)
 				&& in_lock->trx != lock->trx) {
 				update_dep_size(lock->trx,
-						in_lock->trx->dep_size + 1,
+						trx_get_dep_size(in_lock->trx) + 1,
 						NULL);
 			}
 		}
@@ -1718,7 +1749,7 @@ update_dep_size(
 			 lock = lock_rec_get_next(heap_no, lock)) {
 			if (lock_get_wait(lock)
 				&& in_lock->trx != lock->trx) {
-				total_size_delta += lock->trx->dep_size + 1;
+				total_size_delta += trx_get_dep_size(lock->trx) + 1;
 			}
 		}
 		update_dep_size(in_lock->trx, total_size_delta, NULL);
@@ -2779,13 +2810,13 @@ vats_grant(
 						rec_fold, lock);
 			lock_rec_insert_to_head(lock_hash, lock, rec_fold);
 			new_granted.push_back(lock);
-			sub_dep_size_total -= lock->trx->dep_size + 1;
+			sub_dep_size_total -= trx_get_dep_size(lock->trx) + 1;
 		} else {
-			add_dep_size_total += lock->trx->dep_size + 1;
+			add_dep_size_total += trx_get_dep_size(lock->trx) + 1;
 		}
 	}
 	if (lock_get_wait(released_lock)) {
-		sub_dep_size_total -= released_lock->trx->dep_size + 1;
+		sub_dep_size_total -= trx_get_dep_size(released_lock->trx) + 1;
 	}
 
 	ut_ad(add_dep_size_total >= 0);
@@ -2802,7 +2833,7 @@ vats_grant(
 		for (j = 0; j < new_granted.size(); ++j) {
 			new_granted_lock = new_granted[j];
 			if (lock->trx == new_granted_lock->trx) {
-				dep_size_compensate += lock->trx->dep_size + 1;
+				dep_size_compensate += trx_get_dep_size(lock->trx) + 1;
 			}
 		}
 		ut_ad(dep_size_compensate >= 0);
@@ -2821,7 +2852,7 @@ vats_grant(
 			wait_lock = wait_locks[j].first;
 			if (lock_get_wait(wait_lock)
 			    && lock->trx == wait_lock->trx) {
-				dep_size_compensate -= lock->trx->dep_size + 1;
+				dep_size_compensate -= trx_get_dep_size(lock->trx) + 1;
 			}
 		}
 		ut_ad(dep_size_compensate <= 0);

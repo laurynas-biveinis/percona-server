@@ -20740,6 +20740,39 @@ innodb_lock_schedule_algorithm_validate(
 }
 #endif
 
+/** Update the innodb_log_schedule_algorithm system variable. If transiting
+from FCFS to VATS, note the lock_sys dep_size_updated counter value to
+invalidate older transaction weights.
+
+@param[in]	thd	thread handle
+@param[in]	var	system variable
+@param[out]	var_ptr	current value
+@param[in]	save	immediate result from check function */
+static
+void
+innodb_lock_schedule_algorithm_update(
+	THD*				thd,
+	struct st_mysql_sys_var*	var,
+	void*				var_ptr,
+	const void*			save)
+{
+	const bool old_alg_fcfs
+		= (innodb_lock_schedule_algorithm
+		   == INNODB_LOCK_SCHEDULE_ALGORITHM_FCFS);
+
+	*static_cast<ulong *>(var_ptr) = *static_cast<const ulong *>(save);
+
+	if ((innodb_lock_schedule_algorithm
+	     == INNODB_LOCK_SCHEDULE_ALGORITHM_VATS)
+	    && old_alg_fcfs)
+	{
+		lock_mutex_enter();
+		lock_sys->dep_size_updated_at_fcfs_to_vats
+			= lock_sys->dep_size_updated;
+		lock_mutex_exit();
+	}
+}
+
 /** Update the innodb_log_checksums parameter.
 @param[in]	thd	thread handle
 @param[in]	var	system variable
@@ -21289,7 +21322,7 @@ static MYSQL_SYSVAR_ENUM(lock_schedule_algorithm, innodb_lock_schedule_algorithm
 #else
   NULL,
 #endif
-  NULL,
+  innodb_lock_schedule_algorithm_update,
   INNODB_LOCK_SCHEDULE_ALGORITHM_VATS,
   &innodb_lock_schedule_algorithm_typelib);
 
