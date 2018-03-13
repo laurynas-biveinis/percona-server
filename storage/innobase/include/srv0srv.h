@@ -140,19 +140,19 @@ struct srv_stats_t {
 	ulint_ctr_1_t		n_lock_max_wait_time;
 
 	/** Number of buffered aio requests submitted */
-	ulint_ctr_64_t		n_aio_submitted;
+	ulint_ctr_1_t		n_aio_submitted;
 
 	/* Number of merge blocks encrypted */
-	ulint_ctr_64_t          n_merge_blocks_encrypted;
+	ulint_ctr_1_t		n_merge_blocks_encrypted;
 
 	/* Number of merge blocks decrypted */
-	ulint_ctr_64_t          n_merge_blocks_decrypted;
+	ulint_ctr_1_t		n_merge_blocks_decrypted;
 
 	/* Number of row log blocks encrypted */
-	ulint_ctr_64_t          n_rowlog_blocks_encrypted;
+	ulint_ctr_1_t		n_rowlog_blocks_encrypted;
 
 	/* Number of row log blocks decrypted */
-	ulint_ctr_64_t          n_rowlog_blocks_decrypted;
+	ulint_ctr_1_t		n_rowlog_blocks_decrypted;
 };
 
 extern const char*	srv_main_thread_op_info;
