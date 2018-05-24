@@ -1054,18 +1054,6 @@ void THD::release_resources()
 
   Global_THD_manager::get_instance()->release_thread_id(m_thread_id);
 
-  mysql_mutex_lock(&LOCK_status);
-  add_to_status(&global_status_var, &status_var, false);
-  /*
-    Status queries after this point should not aggregate THD::status_var
-    since the values has been added to global_status_var.
-    The status values are not reset so that they can still be read
-    by performance schema.
-  */
-  status_var_aggregated= true;
-
-  mysql_mutex_unlock(&LOCK_status);
-
   /* Ensure that no one is using THD */
   mysql_mutex_lock(&LOCK_thd_data);
   mysql_mutex_lock(&LOCK_query_plan);
@@ -1117,6 +1105,19 @@ void THD::release_resources()
 
   if (current_thd == this)
     restore_globals();
+
+  mysql_mutex_lock(&LOCK_status);
+  add_to_status(&global_status_var, &status_var, false);
+  /*
+    Status queries after this point should not aggregate THD::status_var
+    since the values has been added to global_status_var.
+    The status values are not reset so that they can still be read
+    by performance schema.
+  */
+  status_var_aggregated= true;
+
+  mysql_mutex_unlock(&LOCK_status);
+
   
   m_release_resources_done= true;
 }
@@ -1268,7 +1269,10 @@ void THD::awake(THD::killed_state state_to_set)
     ha_kill_connection(this);
 
   if (state_to_set == THD::KILL_TIMEOUT)
+  {
+    DBUG_ASSERT(!status_var_aggregated);
     status_var.max_execution_time_exceeded++;
+  }
 
 
   /* Broadcast a condition to kick the target if it is waiting on it. */
@@ -2312,6 +2316,7 @@ void THD::inc_examined_row_count(ha_rows count)
 
 void THD::inc_status_created_tmp_disk_tables()
 {
+  DBUG_ASSERT(!status_var_aggregated);
   status_var.created_tmp_disk_tables++;
 #ifdef HAVE_PSI_STATEMENT_INTERFACE
   PSI_STATEMENT_CALL(inc_statement_created_tmp_disk_tables)(m_statement_psi, 1);
@@ -2320,6 +2325,7 @@ void THD::inc_status_created_tmp_disk_tables()
 
 void THD::inc_status_created_tmp_tables()
 {
+  DBUG_ASSERT(!status_var_aggregated);
   status_var.created_tmp_tables++;
 #ifdef HAVE_PSI_STATEMENT_INTERFACE
   PSI_STATEMENT_CALL(inc_statement_created_tmp_tables)(m_statement_psi, 1);
@@ -2328,6 +2334,7 @@ void THD::inc_status_created_tmp_tables()
 
 void THD::inc_status_select_full_join()
 {
+  DBUG_ASSERT(!status_var_aggregated);
   status_var.select_full_join_count++;
 #ifdef HAVE_PSI_STATEMENT_INTERFACE
   PSI_STATEMENT_CALL(inc_statement_select_full_join)(m_statement_psi, 1);
@@ -2336,6 +2343,7 @@ void THD::inc_status_select_full_join()
 
 void THD::inc_status_select_full_range_join()
 {
+  DBUG_ASSERT(!status_var_aggregated);
   status_var.select_full_range_join_count++;
 #ifdef HAVE_PSI_STATEMENT_INTERFACE
   PSI_STATEMENT_CALL(inc_statement_select_full_range_join)(m_statement_psi, 1);
@@ -2344,6 +2352,7 @@ void THD::inc_status_select_full_range_join()
 
 void THD::inc_status_select_range()
 {
+  DBUG_ASSERT(!status_var_aggregated);
   status_var.select_range_count++;
 #ifdef HAVE_PSI_STATEMENT_INTERFACE
   PSI_STATEMENT_CALL(inc_statement_select_range)(m_statement_psi, 1);
@@ -2352,6 +2361,7 @@ void THD::inc_status_select_range()
 
 void THD::inc_status_select_range_check()
 {
+  DBUG_ASSERT(!status_var_aggregated);
   status_var.select_range_check_count++;
 #ifdef HAVE_PSI_STATEMENT_INTERFACE
   PSI_STATEMENT_CALL(inc_statement_select_range_check)(m_statement_psi, 1);
@@ -2360,6 +2370,7 @@ void THD::inc_status_select_range_check()
 
 void THD::inc_status_select_scan()
 {
+  DBUG_ASSERT(!status_var_aggregated);
   status_var.select_scan_count++;
 #ifdef HAVE_PSI_STATEMENT_INTERFACE
   PSI_STATEMENT_CALL(inc_statement_select_scan)(m_statement_psi, 1);
@@ -2368,6 +2379,7 @@ void THD::inc_status_select_scan()
 
 void THD::inc_status_sort_merge_passes()
 {
+  DBUG_ASSERT(!status_var_aggregated);
   status_var.filesort_merge_passes++;
 #ifdef HAVE_PSI_STATEMENT_INTERFACE
   PSI_STATEMENT_CALL(inc_statement_sort_merge_passes)(m_statement_psi, 1);
@@ -2376,6 +2388,7 @@ void THD::inc_status_sort_merge_passes()
 
 void THD::inc_status_sort_range()
 {
+  DBUG_ASSERT(!status_var_aggregated);
   status_var.filesort_range_count++;
 #ifdef HAVE_PSI_STATEMENT_INTERFACE
   PSI_STATEMENT_CALL(inc_statement_sort_range)(m_statement_psi, 1);
@@ -2384,6 +2397,7 @@ void THD::inc_status_sort_range()
 
 void THD::inc_status_sort_rows(ha_rows count)
 {
+  DBUG_ASSERT(!status_var_aggregated);
   status_var.filesort_rows+= count;
 #ifdef HAVE_PSI_STATEMENT_INTERFACE
   PSI_STATEMENT_CALL(inc_statement_sort_rows)(m_statement_psi,
@@ -2393,6 +2407,7 @@ void THD::inc_status_sort_rows(ha_rows count)
 
 void THD::inc_status_sort_scan()
 {
+  DBUG_ASSERT(!status_var_aggregated);
   status_var.filesort_scan_count++;
 #ifdef HAVE_PSI_STATEMENT_INTERFACE
   PSI_STATEMENT_CALL(inc_statement_sort_scan)(m_statement_psi, 1);
