@@ -1476,6 +1476,7 @@ int ha_prepare(THD *thd)
     while (ha_info)
     {
       handlerton *ht= ha_info->ht();
+      DBUG_ASSERT(!thd->status_var_aggregated);
       thd->status_var.ha_prepare_count++;
       if (ht->prepare)
       {
@@ -1986,6 +1987,7 @@ int ha_commit_low(THD *thd, bool all, bool run_after_commit)
                  my_strerror(errbuf, MYSQL_ERRMSG_SIZE, err));
         error=1;
       }
+      DBUG_ASSERT(!thd->status_var_aggregated);
       thd->status_var.ha_commit_count++;
       ha_info_next= ha_info->next();
       if (restore_backup_ha_data)
@@ -2056,6 +2058,7 @@ int ha_rollback_low(THD *thd, bool all)
                  my_strerror(errbuf, MYSQL_ERRMSG_SIZE, err));
         error= 1;
       }
+      DBUG_ASSERT(!thd->status_var_aggregated);
       thd->status_var.ha_rollback_count++;
       ha_info_next= ha_info->next();
       if (restore_backup_ha_data)
@@ -2236,6 +2239,7 @@ int ha_commit_attachable(THD *thd)
         DBUG_ASSERT(false);
         error= 1;
       }
+      DBUG_ASSERT(!thd->status_var_aggregated);
       thd->status_var.ha_commit_count++;
       ha_info_next= ha_info->next();
 
@@ -2330,6 +2334,7 @@ int ha_rollback_to_savepoint(THD *thd, SAVEPOINT *sv)
                my_strerror(errbuf, MYSQL_ERRMSG_SIZE, err));
       error=1;
     }
+    DBUG_ASSERT(!thd->status_var_aggregated);
     thd->status_var.ha_savepoint_rollback_count++;
     if (ht->prepare == 0)
       trn_ctx->set_no_2pc(trx_scope, true);
@@ -2351,6 +2356,7 @@ int ha_rollback_to_savepoint(THD *thd, SAVEPOINT *sv)
                my_strerror(errbuf, MYSQL_ERRMSG_SIZE, err));
       error=1;
     }
+    DBUG_ASSERT(!thd->status_var_aggregated);
     thd->status_var.ha_rollback_count++;
     ha_info_next= ha_info->next();
     ha_info->reset(); /* keep it conveniently zero-filled */
@@ -2394,6 +2400,7 @@ int ha_prepare_low(THD *thd, bool all)
                  my_strerror(errbuf, MYSQL_ERRMSG_SIZE, err));
         error= 1;
       }
+      DBUG_ASSERT(!thd->status_var_aggregated);
       thd->status_var.ha_prepare_count++;
     }
     DBUG_EXECUTE_IF("crash_commit_after_prepare", DBUG_SUICIDE(););
@@ -2436,6 +2443,7 @@ int ha_savepoint(THD *thd, SAVEPOINT *sv)
                my_strerror(errbuf, MYSQL_ERRMSG_SIZE, err));
       error=1;
     }
+    DBUG_ASSERT(!thd->status_var_aggregated);
     thd->status_var.ha_savepoint_count++;
   }
   /*
@@ -2799,6 +2807,7 @@ err:
 
 void handler::ha_statistic_increment(ulonglong System_status_var::*offset) const
 {
+  DBUG_ASSERT(!table->in_use->status_var_aggregated);
   (table->in_use->status_var.*offset)++;
 }
 
@@ -5952,7 +5961,10 @@ static int ha_discover(THD *thd, const char *db, const char *name,
     error= 0;
 
   if (!error)
+  {
+    DBUG_ASSERT(!thd->status_var_aggregated);
     thd->status_var.ha_discover_count++;
+  }
   DBUG_RETURN(error);
 }
 
@@ -6880,7 +6892,10 @@ int DsMrr_impl::dsmrr_init(RANGE_SEQ_IF *seq_funcs, void *seq_init_param,
   is_mrr_assoc= !(mode & HA_MRR_NO_ASSOCIATION);
 
   if (is_mrr_assoc)
+  {
+    DBUG_ASSERT(!thd->status_var_aggregated);
     table->in_use->status_var.ha_multi_range_read_init_count++;
+  }
  
   rowids_buf_end= buf->buffer_end;
   elem_size= h->ref_length + (int)is_mrr_assoc * sizeof(void*);
