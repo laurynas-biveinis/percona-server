@@ -1043,6 +1043,16 @@ buf_LRU_insert_zip_clean(
 }
 #endif /* UNIV_DEBUG || UNIV_BUF_DEBUG */
 
+static
+bool
+buf_LRU_should_continue_scan(enum lru_scan_depth scan_depth, ulint limit,
+			     ulint scanned)
+{
+	return (scan_depth == LRU_SCAN_DEPTH_ONE && scanned == 0) ||
+		scan_depth == LRU_SCAN_DEPTH_ALL ||
+		scanned < limit;
+}
+
 /******************************************************************//**
 Try to free an uncompressed page of a compressed block from the unzip
 LRU list.  The compressed page is preserved, and it need not be clean.
@@ -1052,7 +1062,7 @@ bool
 buf_LRU_free_from_unzip_LRU_list(
 /*=============================*/
 	buf_pool_t*	buf_pool,	/*!< in: buffer pool instance */
-	bool		scan_all)	/*!< in: scan whole LRU list
+	enum lru_scan_depth	scan_depth)	/*!< in: scan whole LRU list
 					if true, otherwise scan only
 					srv_LRU_scan_depth / 2 blocks. */
 {
@@ -1068,7 +1078,7 @@ buf_LRU_free_from_unzip_LRU_list(
 	for (buf_block_t* block = UT_LIST_GET_LAST(buf_pool->unzip_LRU);
 	     block != NULL
 	     && !freed
-	     && (scan_all || scanned < srv_LRU_scan_depth);
+	     && buf_LRU_should_continue_scan(scan_depth, BUF_LRU_SEARCH_SCAN_THRESHOLD, scanned);
 	     ++scanned) {
 
 		buf_block_t*	prev_block;
@@ -1108,7 +1118,7 @@ bool
 buf_LRU_free_from_common_LRU_list(
 /*==============================*/
 	buf_pool_t*	buf_pool,	/*!< in: buffer pool instance */
-	bool		scan_all)	/*!< in: scan whole LRU list
+	enum lru_scan_depth	scan_depth)	/*!< in: scan whole LRU list
 					if true, otherwise scan only
 					up to BUF_LRU_SEARCH_SCAN_THRESHOLD */
 {
@@ -1120,7 +1130,7 @@ buf_LRU_free_from_common_LRU_list(
 	for (buf_page_t* bpage = buf_pool->lru_scan_itr.start();
 	     bpage != NULL
 	     && !freed
-	     && (scan_all || scanned < BUF_LRU_SEARCH_SCAN_THRESHOLD);
+	     && buf_LRU_should_continue_scan(scan_depth, srv_LRU_scan_depth, scanned);
 	     ++scanned, bpage = buf_pool->lru_scan_itr.get()) {
 
 		buf_page_t*	prev = UT_LIST_GET_PREV(LRU, bpage);
@@ -1174,7 +1184,7 @@ bool
 buf_LRU_scan_and_free_block(
 /*========================*/
 	buf_pool_t*	buf_pool,	/*!< in: buffer pool instance */
-	bool		scan_all)	/*!< in: scan whole LRU list
+	enum lru_scan_depth		scan_depth)	/*!< in: scan whole LRU list
 					if true, otherwise scan only
 					BUF_LRU_SEARCH_SCAN_THRESHOLD
 					blocks. */
@@ -1185,11 +1195,11 @@ buf_LRU_scan_and_free_block(
 	mutex_enter(&buf_pool->LRU_list_mutex);
 
 	if (use_unzip_list) {
-		freed = buf_LRU_free_from_unzip_LRU_list(buf_pool, scan_all);
+		freed = buf_LRU_free_from_unzip_LRU_list(buf_pool, scan_depth);
 	}
 
 	if (!freed) {
-		freed = buf_LRU_free_from_common_LRU_list(buf_pool, scan_all);
+		freed = buf_LRU_free_from_common_LRU_list(buf_pool, scan_depth);
 	}
 
 	if (!freed) {
@@ -1497,6 +1507,16 @@ loop:
 
 	MONITOR_INC( MONITOR_LRU_GET_FREE_LOOPS );
 
+	if (n_iterations == 0) {
+		freed = buf_LRU_scan_and_free_block(buf_pool, LRU_SCAN_DEPTH_ONE);
+		if (freed) {
+			n_iterations++;
+			goto loop;
+		}
+		else
+			os_event_set(buf_pool->lru_flush_requested);
+	}
+
 	freed = false;
 
 	os_rmb;
@@ -1590,7 +1610,7 @@ loop:
 		tail of the LRU list otherwise we scan the whole LRU
 		list. */
 		freed = buf_LRU_scan_and_free_block(
-			buf_pool, n_iterations > 0);
+			buf_pool, n_iterations > 0 ? LRU_SCAN_DEPTH_ALL : LRU_SCAN_DEPTH_THRESHOLD);
 
 		if (!freed && n_iterations == 0) {
 			/* Tell other threads that there is no point

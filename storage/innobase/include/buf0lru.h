@@ -91,6 +91,10 @@ buf_LRU_free_page(
 	bool		zip)	/*!< in: true if should remove also the
 				compressed page of an uncompressed page */
 	MY_ATTRIBUTE((nonnull, warn_unused_result));
+
+enum lru_scan_depth { LRU_SCAN_DEPTH_ONE, LRU_SCAN_DEPTH_THRESHOLD,
+                      LRU_SCAN_DEPTH_ALL };
+
 /******************************************************************//**
 Try to free a replaceable block.
 @return true if found and freed */
@@ -98,7 +102,7 @@ bool
 buf_LRU_scan_and_free_block(
 /*========================*/
 	buf_pool_t*	buf_pool,	/*!< in: buffer pool instance */
-	bool		scan_all)	/*!< in: scan whole LRU list
+	enum lru_scan_depth		scan_depth)	/*!< in: scan whole LRU list
 					if true, otherwise scan only
 					'old' blocks. */
 	MY_ATTRIBUTE((nonnull,warn_unused_result));

@@ -1714,6 +1714,9 @@ buf_pool_init_instance(
 		     &buf_pool->flush_state_mutex);
 	mutex_create(LATCH_ID_BUF_POOL_ZIP, &buf_pool->zip_mutex);
 
+	buf_pool->lru_flush_requested = os_event_create("lru_flush_requested");
+	os_event_reset(buf_pool->lru_flush_requested);
+
 	new(&buf_pool->allocator)
 		ut_allocator<unsigned char>(mem_key_buf_buf_pool);
 
@@ -6094,7 +6097,7 @@ buf_pool_invalidate_instance(
 
 	ut_ad(buf_all_freed_instance(buf_pool));
 
-	while (buf_LRU_scan_and_free_block(buf_pool, true)) {
+	while (buf_LRU_scan_and_free_block(buf_pool, LRU_SCAN_DEPTH_ALL)) {
 	}
 
 	mutex_enter(&buf_pool->LRU_list_mutex);

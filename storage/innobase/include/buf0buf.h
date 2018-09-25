@@ -2180,6 +2180,7 @@ struct buf_pool_t{
 					when there is no flush batch
 					of the given type running. Protected by
 					flush_state_mutex. */
+	os_event_t	lru_flush_requested;
 	ib_rbt_t*	flush_rbt;	/*!< a red-black tree is used
 					exclusively during recovery to
 					speed up insertions in the

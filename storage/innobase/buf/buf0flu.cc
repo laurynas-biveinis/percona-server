@@ -3547,70 +3547,6 @@ DECLARE_THREAD(buf_flush_page_cleaner_worker)(
 	OS_THREAD_DUMMY_RETURN;
 }
 
-/** Make a LRU manager thread sleep until the passed target time, if it's not
-already in the past.
-@param[in]	next_loop_time	desired wake up time */
-static
-void
-buf_lru_manager_sleep_if_needed(
-	ulint	next_loop_time)
-{
-	/* If this is the server shutdown buffer pool flushing phase, skip the
-	sleep to quit this thread faster */
-	if (srv_shutdown_state == SRV_SHUTDOWN_FLUSH_PHASE)
-		return;
-
-	ulint	cur_time	= ut_time_ms();
-
-	if (next_loop_time > cur_time) {
-		/* Get sleep interval in micro seconds. We use
-		ut_min() to avoid long sleep in case of
-		wrap around. */
-		os_thread_sleep(std::min(1000000UL,
-					 (next_loop_time - cur_time)
-					 * 1000));
-	}
-}
-
-/** Adjust the LRU manager thread sleep time based on the free list length and
-the last flush result
-@param[in]	buf_pool	buffer pool whom we are flushing
-@param[in]	lru_n_flushed	last LRU flush page count
-@param[in,out]	lru_sleep_time	LRU manager thread sleep time */
-static
-void
-buf_lru_manager_adapt_sleep_time(
-	const buf_pool_t*	buf_pool,
-	ulint			lru_n_flushed,
-	ulint*			lru_sleep_time)
-{
-	const ulint free_len = UT_LIST_GET_LEN(buf_pool->free);
-	const ulint max_free_len = std::min(
-			UT_LIST_GET_LEN(buf_pool->LRU), srv_LRU_scan_depth);
-
-	if (free_len < max_free_len / 100 && lru_n_flushed) {
-
-		/* Free list filled less than 1% and the last iteration was
-		able to flush, no sleep */
-		*lru_sleep_time = 0;
-	} else if (free_len > max_free_len / 5
-		   || (free_len < max_free_len / 100 && lru_n_flushed == 0)) {
-
-		/* Free list filled more than 20% or no pages flushed in the
-		previous batch, sleep a bit more */
-		*lru_sleep_time += 1;
-		if (*lru_sleep_time > srv_cleaner_max_lru_time)
-			*lru_sleep_time = srv_cleaner_max_lru_time;
-	} else if (free_len < max_free_len / 20 && *lru_sleep_time >= 50) {
-
-		/* Free list filled less than 5%, sleep a bit less */
-		*lru_sleep_time -= 50;
-	} else {
-
-		/* Free lists filled between 5% and 20%, no change */
-	}
-}
-
 /** LRU manager thread for performing LRU flushed and evictions for buffer pool
 free list refill. One thread is created for each buffer pool instace.
 @param[in]	arg	buffer pool instance number for this thread
@@ -3649,8 +3585,6 @@ DECLARE_THREAD(buf_lru_manager)(
 
 	os_atomic_increment_ulint(&buf_lru_manager_running_threads, 1);
 
-	ulint	lru_sleep_time	= 1000;
-	ulint	next_loop_time	= ut_time_ms() + lru_sleep_time;
 	ulint	lru_n_flushed	= 1;
 
 	/* On server shutdown, the LRU manager thread runs through cleanup
@@ -3660,16 +3594,13 @@ DECLARE_THREAD(buf_lru_manager)(
 
 		ut_d(buf_flush_page_cleaner_disabled_loop());
 
-		buf_lru_manager_sleep_if_needed(next_loop_time);
-
-		buf_lru_manager_adapt_sleep_time(buf_pool, lru_n_flushed,
-						 &lru_sleep_time);
-
-		next_loop_time = ut_time_ms() + lru_sleep_time;
+		os_event_wait(buf_pool->lru_flush_requested);
 
 		lru_n_flushed = buf_flush_LRU_list(buf_pool);
 
 		buf_flush_wait_batch_end(buf_pool, BUF_FLUSH_LRU);
+
+		os_event_reset(buf_pool->lru_flush_requested);
 
 		if (lru_n_flushed) {
 			srv_stats.buf_pool_flushed.add(lru_n_flushed);
