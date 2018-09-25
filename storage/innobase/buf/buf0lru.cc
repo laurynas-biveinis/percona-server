@@ -1216,8 +1216,7 @@ buf_LRU_buf_pool_running_out(void)
 		buf_pool = buf_pool_from_array(i);
 
 		if (!recv_recovery_is_on()
-		    && UT_LIST_GET_LEN(buf_pool->free)
-		       + UT_LIST_GET_LEN(buf_pool->LRU)
+		    && UT_LIST_GET_LEN(buf_pool->LRU)
 		       < ut_min(buf_pool->curr_size,
 				buf_pool->old_size) / 4) {
 
@@ -1239,6 +1238,7 @@ buf_LRU_get_free_only(
 {
 	buf_block_t*	block;
 
+#if 0 // TODO laurynas needs rewrite to return from LRU
 	mutex_enter(&buf_pool->free_list_mutex);
 
 	block = reinterpret_cast<buf_block_t*>(
@@ -1278,6 +1278,9 @@ buf_LRU_get_free_only(
 	}
 
 	mutex_exit(&buf_pool->free_list_mutex);
+#else
+        block = NULL;
+#endif
 
 	return(block);
 }
@@ -1295,8 +1298,7 @@ buf_LRU_check_size_of_non_data_objects(
 {
 	if (!recv_recovery_is_on()
 	    && buf_pool->curr_size == buf_pool->old_size
-	    && UT_LIST_GET_LEN(buf_pool->free)
-	    + UT_LIST_GET_LEN(buf_pool->LRU) < buf_pool->curr_size / 20) {
+	    && UT_LIST_GET_LEN(buf_pool->LRU) < buf_pool->curr_size / 20) {
 
 		ib::fatal() << "Over 95 percent of the buffer pool is"
 			" occupied by lock heaps or the adaptive hash index!"
@@ -1310,8 +1312,7 @@ buf_LRU_check_size_of_non_data_objects(
 
 	} else if (!recv_recovery_is_on()
 		   && buf_pool->curr_size == buf_pool->old_size
-		   && (UT_LIST_GET_LEN(buf_pool->free)
-		       + UT_LIST_GET_LEN(buf_pool->LRU))
+		   && (UT_LIST_GET_LEN(buf_pool->LRU))
 		   < buf_pool->curr_size / 3) {
 
 		if (!buf_lru_switched_on_innodb_mon) {
@@ -2337,6 +2338,7 @@ buf_LRU_block_free_non_file_page(
 /*=============================*/
 	buf_block_t*	block)	/*!< in: block, must not contain a file page */
 {
+#if 0 // TODO laurynas: convert to no-op?
 	void*		data;
 	buf_pool_t*	buf_pool = buf_pool_from_block(block);
 
@@ -2396,6 +2398,7 @@ buf_LRU_block_free_non_file_page(
 		ut_d(block->page.in_free_list = TRUE);
 		mutex_exit(&buf_pool->free_list_mutex);
 	}
+#endif
 }
 
 /******************************************************************//**
@@ -2422,6 +2425,7 @@ buf_LRU_block_remove_hashed(
 	bool		zip)	/*!< in: true if should remove also the
 				compressed page of an uncompressed page */
 {
+#if 0 // TODO laurynas: leave block on the LRU list
 	const buf_page_t*	hashed_bpage;
 	buf_pool_t*		buf_pool = buf_pool_from_bpage(bpage);
 	rw_lock_t*		hash_lock;
@@ -2630,6 +2634,7 @@ buf_LRU_block_remove_hashed(
 	}
 
 	ut_error;
+#endif
 	return(false);
 }
 
@@ -2853,7 +2858,6 @@ buf_LRU_validate_instance(
 
 		switch (buf_page_get_state(bpage)) {
 		case BUF_BLOCK_POOL_WATCH:
-		case BUF_BLOCK_NOT_USED:
 		case BUF_BLOCK_READY_FOR_USE:
 		case BUF_BLOCK_MEMORY:
 		case BUF_BLOCK_REMOVE_HASH:
@@ -2886,19 +2890,6 @@ buf_LRU_validate_instance(
 	ut_a(buf_pool->LRU_old_len == old_len);
 
 	mutex_exit(&buf_pool->LRU_list_mutex);
-
-	mutex_enter(&buf_pool->free_list_mutex);
-
-	CheckInFreeList::validate(buf_pool);
-
-	for (buf_page_t* bpage = UT_LIST_GET_FIRST(buf_pool->free);
-	     bpage != NULL;
-	     bpage = UT_LIST_GET_NEXT(list, bpage)) {
-
-		ut_a(buf_page_get_state(bpage) == BUF_BLOCK_NOT_USED);
-	}
-
-	mutex_exit(&buf_pool->free_list_mutex);
 
 	mutex_enter(&buf_pool->LRU_list_mutex);
 

@@ -188,7 +188,6 @@ buf_page_get_state(
 	case BUF_BLOCK_POOL_WATCH:
 	case BUF_BLOCK_ZIP_PAGE:
 	case BUF_BLOCK_ZIP_DIRTY:
-	case BUF_BLOCK_NOT_USED:
 	case BUF_BLOCK_READY_FOR_USE:
 	case BUF_BLOCK_FILE_PAGE:
 	case BUF_BLOCK_MEMORY:
@@ -228,10 +227,8 @@ buf_page_is_private(
 	ut_a(!bpage->in_page_hash);
 	ut_a(!bpage->in_zip_hash);
 	ut_a(!bpage->in_flush_list);
-	ut_a(!bpage->in_free_list);
 	ut_a(!bpage->in_LRU_list);
 	ut_a(!mutex_own(buf_page_get_mutex(bpage)));
-	ut_a(!mutex_own(&buf_pool->free_list_mutex));
 	ut_a(!mutex_own(&buf_pool->zip_free_mutex));
 	ut_a(!mutex_own(&buf_pool->zip_hash_mutex));
 	return(true);
@@ -264,28 +261,22 @@ buf_page_set_state(
 		ut_a(buf_flush_list_mutex_own(buf_pool));
 		ut_a(bpage->in_flush_list);
 		break;
-	case BUF_BLOCK_NOT_USED:
-		ut_a(state == BUF_BLOCK_READY_FOR_USE);
-		ut_a(buf_page_is_private(bpage));
-		break;
 	case BUF_BLOCK_READY_FOR_USE:
 		ut_a(state == BUF_BLOCK_MEMORY
-		     || state == BUF_BLOCK_FILE_PAGE
-		     || state == BUF_BLOCK_NOT_USED);
+		     || state == BUF_BLOCK_FILE_PAGE);
 		ut_a(buf_page_is_private(bpage));
 		break;
 	case BUF_BLOCK_MEMORY:
-		ut_a(state == BUF_BLOCK_NOT_USED);
+		// TODO laurynas correct assert
 		ut_a(buf_page_is_private(bpage));
 		break;
 	case BUF_BLOCK_FILE_PAGE:
-		ut_a(state == BUF_BLOCK_NOT_USED
+		ut_a(state == BUF_BLOCK_READY_FOR_USE
 		     || state == BUF_BLOCK_REMOVE_HASH);
 		if (state == BUF_BLOCK_REMOVE_HASH) {
 			ut_a(!bpage->in_page_hash);
 			ut_a(!bpage->in_zip_hash);
 			ut_a(!bpage->in_LRU_list);
-			ut_a(!bpage->in_free_list);
 			ut_a(mutex_own(buf_page_get_mutex(bpage)));
 			ut_a(mutex_own(&buf_pool->LRU_list_mutex));
 			ut_a(buf_page_hash_lock_held_x(buf_pool, bpage));
@@ -329,7 +320,6 @@ buf_page_in_file(
 	case BUF_BLOCK_ZIP_DIRTY:
 	case BUF_BLOCK_FILE_PAGE:
 		return(TRUE);
-	case BUF_BLOCK_NOT_USED:
 	case BUF_BLOCK_READY_FOR_USE:
 	case BUF_BLOCK_MEMORY:
 	case BUF_BLOCK_REMOVE_HASH:
@@ -748,7 +738,6 @@ buf_block_get_frame(
 	case BUF_BLOCK_POOL_WATCH:
 	case BUF_BLOCK_ZIP_PAGE:
 	case BUF_BLOCK_ZIP_DIRTY:
-	case BUF_BLOCK_NOT_USED:
 		ut_error;
 		break;
 	case BUF_BLOCK_FILE_PAGE:
@@ -1307,7 +1296,6 @@ buf_page_release_zip(
 		return;
 
 	case BUF_BLOCK_POOL_WATCH:
-	case BUF_BLOCK_NOT_USED:
 	case BUF_BLOCK_READY_FOR_USE:
 	case BUF_BLOCK_MEMORY:
 	case BUF_BLOCK_REMOVE_HASH:
@@ -1424,9 +1412,9 @@ buf_get_withdraw_depth(
 	os_rmb;
 	if (UNIV_LIKELY(buf_pool->curr_size >= buf_pool->old_size))
 		return 0;
-	mutex_enter(&buf_pool->free_list_mutex);
+	mutex_enter(&buf_pool->withdraw_list_mutex);
 	ulint withdraw_len = UT_LIST_GET_LEN(buf_pool->withdraw);
-	mutex_exit(&buf_pool->free_list_mutex);
+	mutex_exit(&buf_pool->withdraw_list_mutex);
 	return(buf_pool->withdraw_target > withdraw_len
 		? buf_pool->withdraw_target - withdraw_len : 0);
 }

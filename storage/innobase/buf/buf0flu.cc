@@ -67,7 +67,7 @@ modification lsn */
 static const ulint buf_flush_wait_flushed_sleep_time = 10000;
 
 /** Number of pages flushed through non flush_list flushes. */
-static ulint buf_lru_flush_page_count = 0;
+// static ulint buf_lru_flush_page_count = 0;
 
 /** Flag indicating if the page_cleaner is in active state. This flag
 is set to TRUE by the page_cleaner thread when it is spawned and is set
@@ -659,7 +659,6 @@ buf_flush_remove(
 	case BUF_BLOCK_POOL_WATCH:
 	case BUF_BLOCK_ZIP_PAGE:
 		/* Clean compressed pages should not be on the flush list */
-	case BUF_BLOCK_NOT_USED:
 	case BUF_BLOCK_READY_FOR_USE:
 	case BUF_BLOCK_MEMORY:
 	case BUF_BLOCK_REMOVE_HASH:
@@ -1041,7 +1040,6 @@ buf_flush_write_block_low(
 	switch (buf_page_get_state(bpage)) {
 	case BUF_BLOCK_POOL_WATCH:
 	case BUF_BLOCK_ZIP_PAGE: /* The page should be dirty. */
-	case BUF_BLOCK_NOT_USED:
 	case BUF_BLOCK_READY_FOR_USE:
 	case BUF_BLOCK_MEMORY:
 	case BUF_BLOCK_REMOVE_HASH:
@@ -1583,6 +1581,7 @@ buf_flush_page_and_try_neighbors(
 	return(flushed);
 }
 
+#if 0 // TODO laurynas compressed pages
 /*******************************************************************//**
 This utility moves the uncompressed frames of pages to the free list.
 Note that this function does not actually flush any data to disk. It
@@ -1657,6 +1656,7 @@ buf_free_from_unzip_LRU_list_batch(
 
 	return(count);
 }
+#endif
 
 /*******************************************************************//**
 This utility flushes dirty blocks from the end of the LRU list.
@@ -1675,10 +1675,13 @@ buf_flush_LRU_list_batch(
 	ulint		max)		/*!< in: desired number of
 					blocks in the free_list */
 {
+#if 0 // TODO laurynas buf_flush_LRU_list_batch needs rewrite for clean LRU tail
 	buf_page_t*	bpage;
 	ulint		scanned = 0;
+#endif
 	ulint		evict_count = 0;
 	ulint		count = 0;
+#if 0
 	ulint		free_len = UT_LIST_GET_LEN(buf_pool->free);
 	ulint		lru_len = UT_LIST_GET_LEN(buf_pool->LRU);
 	ulint		withdraw_depth;
@@ -1760,6 +1763,7 @@ buf_flush_LRU_list_batch(
 			scanned);
 	}
 
+#endif
 	return(std::make_pair(count, evict_count));
 }
 
@@ -1783,9 +1787,11 @@ buf_do_LRU_batch(
 
 	ut_ad(mutex_own(&buf_pool->LRU_list_mutex));
 
+#if 0 // TODO laurynas needs rewrite for unzip_LRU
 	if (buf_LRU_evict_from_unzip_LRU(buf_pool)) {
 		count = buf_free_from_unzip_LRU_list_batch(buf_pool, max);
 	}
+#endif
 
 	if (max > count) {
 		res = buf_flush_LRU_list_batch(buf_pool, max - count);
@@ -3584,6 +3590,7 @@ buf_lru_manager_adapt_sleep_time(
 	ulint			lru_n_flushed,
 	ulint*			lru_sleep_time)
 {
+#if 0 // TODO laurynas heuristics need change with free list elimination
 	const ulint free_len = UT_LIST_GET_LEN(buf_pool->free);
 	const ulint max_free_len = std::min(
 			UT_LIST_GET_LEN(buf_pool->LRU), srv_LRU_scan_depth);
@@ -3609,6 +3616,7 @@ buf_lru_manager_adapt_sleep_time(
 
 		/* Free lists filled between 5% and 20%, no change */
 	}
+#endif
 }
 
 /** LRU manager thread for performing LRU flushed and evictions for buffer pool

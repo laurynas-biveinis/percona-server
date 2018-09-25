@@ -6508,7 +6508,6 @@ fil_iterate(
 					== BUF_BLOCK_FILE_PAGE;
 			}
 
-			buf_block_set_state(block, BUF_BLOCK_NOT_USED);
 			buf_block_set_state(block, BUF_BLOCK_READY_FOR_USE);
 
 			page_off += iter.page_size;

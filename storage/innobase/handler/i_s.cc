@@ -4500,16 +4500,7 @@ static ST_FIELD_INFO	i_s_innodb_buffer_stats_fields_info[] =
 	 STRUCT_FLD(old_name,		""),
 	 STRUCT_FLD(open_method,	SKIP_OPEN_TABLE)},
 
-#define IDX_BUF_STATS_FREE_BUFFERS	2
-	{STRUCT_FLD(field_name,		"FREE_BUFFERS"),
-	 STRUCT_FLD(field_length,	MY_INT64_NUM_DECIMAL_DIGITS),
-	 STRUCT_FLD(field_type,		MYSQL_TYPE_LONGLONG),
-	 STRUCT_FLD(value,		0),
-	 STRUCT_FLD(field_flags,	MY_I_S_UNSIGNED),
-	 STRUCT_FLD(old_name,		""),
-	 STRUCT_FLD(open_method,	SKIP_OPEN_TABLE)},
-
-#define IDX_BUF_STATS_LRU_LEN		3
+#define IDX_BUF_STATS_LRU_LEN		2
 	{STRUCT_FLD(field_name,		"DATABASE_PAGES"),
 	 STRUCT_FLD(field_length,	MY_INT64_NUM_DECIMAL_DIGITS),
 	 STRUCT_FLD(field_type,		MYSQL_TYPE_LONGLONG),
@@ -4518,7 +4509,7 @@ static ST_FIELD_INFO	i_s_innodb_buffer_stats_fields_info[] =
 	 STRUCT_FLD(old_name,		""),
 	 STRUCT_FLD(open_method,	SKIP_OPEN_TABLE)},
 
-#define IDX_BUF_STATS_OLD_LRU_LEN	4
+#define IDX_BUF_STATS_OLD_LRU_LEN	3
 	{STRUCT_FLD(field_name,		"OLD_DATABASE_PAGES"),
 	 STRUCT_FLD(field_length,	MY_INT64_NUM_DECIMAL_DIGITS),
 	 STRUCT_FLD(field_type,		MYSQL_TYPE_LONGLONG),
@@ -4527,7 +4518,7 @@ static ST_FIELD_INFO	i_s_innodb_buffer_stats_fields_info[] =
 	 STRUCT_FLD(old_name,		""),
 	 STRUCT_FLD(open_method,	SKIP_OPEN_TABLE)},
 
-#define IDX_BUF_STATS_FLUSH_LIST_LEN	5
+#define IDX_BUF_STATS_FLUSH_LIST_LEN	4
 	{STRUCT_FLD(field_name,		"MODIFIED_DATABASE_PAGES"),
 	 STRUCT_FLD(field_length,	MY_INT64_NUM_DECIMAL_DIGITS),
 	 STRUCT_FLD(field_type,		MYSQL_TYPE_LONGLONG),
@@ -4536,7 +4527,7 @@ static ST_FIELD_INFO	i_s_innodb_buffer_stats_fields_info[] =
 	 STRUCT_FLD(old_name,		""),
 	 STRUCT_FLD(open_method,	SKIP_OPEN_TABLE)},
 
-#define IDX_BUF_STATS_PENDING_ZIP	6
+#define IDX_BUF_STATS_PENDING_ZIP	5
 	{STRUCT_FLD(field_name,		"PENDING_DECOMPRESS"),
 	 STRUCT_FLD(field_length,	MY_INT64_NUM_DECIMAL_DIGITS),
 	 STRUCT_FLD(field_type,		MYSQL_TYPE_LONGLONG),
@@ -4545,7 +4536,7 @@ static ST_FIELD_INFO	i_s_innodb_buffer_stats_fields_info[] =
 	 STRUCT_FLD(old_name,		""),
 	 STRUCT_FLD(open_method,	SKIP_OPEN_TABLE)},
 
-#define IDX_BUF_STATS_PENDING_READ	7
+#define IDX_BUF_STATS_PENDING_READ	6
 	{STRUCT_FLD(field_name,		"PENDING_READS"),
 	 STRUCT_FLD(field_length,	MY_INT64_NUM_DECIMAL_DIGITS),
 	 STRUCT_FLD(field_type,		MYSQL_TYPE_LONGLONG),
@@ -4554,7 +4545,7 @@ static ST_FIELD_INFO	i_s_innodb_buffer_stats_fields_info[] =
 	 STRUCT_FLD(old_name,		""),
 	 STRUCT_FLD(open_method,	SKIP_OPEN_TABLE)},
 
-#define IDX_BUF_STATS_FLUSH_LRU		8
+#define IDX_BUF_STATS_FLUSH_LRU		7
 	{STRUCT_FLD(field_name,		"PENDING_FLUSH_LRU"),
 	 STRUCT_FLD(field_length,	MY_INT64_NUM_DECIMAL_DIGITS),
 	 STRUCT_FLD(field_type,		MYSQL_TYPE_LONGLONG),
@@ -4563,7 +4554,7 @@ static ST_FIELD_INFO	i_s_innodb_buffer_stats_fields_info[] =
 	 STRUCT_FLD(old_name,		""),
 	 STRUCT_FLD(open_method,	SKIP_OPEN_TABLE)},
 
-#define IDX_BUF_STATS_FLUSH_LIST	9
+#define IDX_BUF_STATS_FLUSH_LIST	8
 	{STRUCT_FLD(field_name,		"PENDING_FLUSH_LIST"),
 	 STRUCT_FLD(field_length,	MY_INT64_NUM_DECIMAL_DIGITS),
 	 STRUCT_FLD(field_type,		MYSQL_TYPE_LONGLONG),
@@ -4572,7 +4563,7 @@ static ST_FIELD_INFO	i_s_innodb_buffer_stats_fields_info[] =
 	 STRUCT_FLD(old_name,		""),
 	 STRUCT_FLD(open_method,	SKIP_OPEN_TABLE)},
 
-#define IDX_BUF_STATS_PAGE_YOUNG	10
+#define IDX_BUF_STATS_PAGE_YOUNG	9
 	{STRUCT_FLD(field_name,		"PAGES_MADE_YOUNG"),
 	 STRUCT_FLD(field_length,	MY_INT64_NUM_DECIMAL_DIGITS),
 	 STRUCT_FLD(field_type,		MYSQL_TYPE_LONGLONG),
@@ -4581,7 +4572,7 @@ static ST_FIELD_INFO	i_s_innodb_buffer_stats_fields_info[] =
 	 STRUCT_FLD(old_name,		""),
 	 STRUCT_FLD(open_method,	SKIP_OPEN_TABLE)},
 
-#define IDX_BUF_STATS_PAGE_NOT_YOUNG	11
+#define IDX_BUF_STATS_PAGE_NOT_YOUNG	10
 	{STRUCT_FLD(field_name,		"PAGES_NOT_MADE_YOUNG"),
 	 STRUCT_FLD(field_length,	MY_INT64_NUM_DECIMAL_DIGITS),
 	 STRUCT_FLD(field_type,		MYSQL_TYPE_LONGLONG),
@@ -4590,7 +4581,7 @@ static ST_FIELD_INFO	i_s_innodb_buffer_stats_fields_info[] =
 	 STRUCT_FLD(old_name,		""),
 	 STRUCT_FLD(open_method,	SKIP_OPEN_TABLE)},
 
-#define	IDX_BUF_STATS_PAGE_YOUNG_RATE	12
+#define	IDX_BUF_STATS_PAGE_YOUNG_RATE	11
 	{STRUCT_FLD(field_name,		"PAGES_MADE_YOUNG_RATE"),
 	 STRUCT_FLD(field_length,	MAX_FLOAT_STR_LENGTH),
 	 STRUCT_FLD(field_type,		MYSQL_TYPE_FLOAT),
@@ -4599,7 +4590,7 @@ static ST_FIELD_INFO	i_s_innodb_buffer_stats_fields_info[] =
 	 STRUCT_FLD(old_name,		""),
 	 STRUCT_FLD(open_method,	SKIP_OPEN_TABLE)},
 
-#define	IDX_BUF_STATS_PAGE_NOT_YOUNG_RATE 13
+#define	IDX_BUF_STATS_PAGE_NOT_YOUNG_RATE 12
 	{STRUCT_FLD(field_name,		"PAGES_MADE_NOT_YOUNG_RATE"),
 	 STRUCT_FLD(field_length,	MAX_FLOAT_STR_LENGTH),
 	 STRUCT_FLD(field_type,		MYSQL_TYPE_FLOAT),
@@ -4608,7 +4599,7 @@ static ST_FIELD_INFO	i_s_innodb_buffer_stats_fields_info[] =
 	 STRUCT_FLD(old_name,		""),
 	 STRUCT_FLD(open_method,	SKIP_OPEN_TABLE)},
 
-#define IDX_BUF_STATS_PAGE_READ		14
+#define IDX_BUF_STATS_PAGE_READ		13
 	{STRUCT_FLD(field_name,		"NUMBER_PAGES_READ"),
 	 STRUCT_FLD(field_length,	MY_INT64_NUM_DECIMAL_DIGITS),
 	 STRUCT_FLD(field_type,		MYSQL_TYPE_LONGLONG),
@@ -4617,7 +4608,7 @@ static ST_FIELD_INFO	i_s_innodb_buffer_stats_fields_info[] =
 	 STRUCT_FLD(old_name,		""),
 	 STRUCT_FLD(open_method,	SKIP_OPEN_TABLE)},
 
-#define IDX_BUF_STATS_PAGE_CREATED	15
+#define IDX_BUF_STATS_PAGE_CREATED	14
 	{STRUCT_FLD(field_name,		"NUMBER_PAGES_CREATED"),
 	 STRUCT_FLD(field_length,	MY_INT64_NUM_DECIMAL_DIGITS),
 	 STRUCT_FLD(field_type,		MYSQL_TYPE_LONGLONG),
@@ -4626,7 +4617,7 @@ static ST_FIELD_INFO	i_s_innodb_buffer_stats_fields_info[] =
 	 STRUCT_FLD(old_name,		""),
 	 STRUCT_FLD(open_method,	SKIP_OPEN_TABLE)},
 
-#define IDX_BUF_STATS_PAGE_WRITTEN	16
+#define IDX_BUF_STATS_PAGE_WRITTEN	15
 	{STRUCT_FLD(field_name,		"NUMBER_PAGES_WRITTEN"),
 	 STRUCT_FLD(field_length,	MY_INT64_NUM_DECIMAL_DIGITS),
 	 STRUCT_FLD(field_type,		MYSQL_TYPE_LONGLONG),
@@ -4635,7 +4626,7 @@ static ST_FIELD_INFO	i_s_innodb_buffer_stats_fields_info[] =
 	 STRUCT_FLD(old_name,		""),
 	 STRUCT_FLD(open_method,	SKIP_OPEN_TABLE)},
 
-#define	IDX_BUF_STATS_PAGE_READ_RATE	17
+#define	IDX_BUF_STATS_PAGE_READ_RATE	16
 	{STRUCT_FLD(field_name,		"PAGES_READ_RATE"),
 	 STRUCT_FLD(field_length,	MAX_FLOAT_STR_LENGTH),
 	 STRUCT_FLD(field_type,		MYSQL_TYPE_FLOAT),
@@ -4644,7 +4635,7 @@ static ST_FIELD_INFO	i_s_innodb_buffer_stats_fields_info[] =
 	 STRUCT_FLD(old_name,		""),
 	 STRUCT_FLD(open_method,	SKIP_OPEN_TABLE)},
 
-#define	IDX_BUF_STATS_PAGE_CREATE_RATE	18
+#define	IDX_BUF_STATS_PAGE_CREATE_RATE	17
 	{STRUCT_FLD(field_name,		"PAGES_CREATE_RATE"),
 	 STRUCT_FLD(field_length,	MAX_FLOAT_STR_LENGTH),
 	 STRUCT_FLD(field_type,		MYSQL_TYPE_FLOAT),
@@ -4653,7 +4644,7 @@ static ST_FIELD_INFO	i_s_innodb_buffer_stats_fields_info[] =
 	 STRUCT_FLD(old_name,		""),
 	 STRUCT_FLD(open_method,	SKIP_OPEN_TABLE)},
 
-#define	IDX_BUF_STATS_PAGE_WRITTEN_RATE	19
+#define	IDX_BUF_STATS_PAGE_WRITTEN_RATE	18
 	{STRUCT_FLD(field_name,		"PAGES_WRITTEN_RATE"),
 	 STRUCT_FLD(field_length,	MAX_FLOAT_STR_LENGTH),
 	 STRUCT_FLD(field_type,		MYSQL_TYPE_FLOAT),
@@ -4662,7 +4653,7 @@ static ST_FIELD_INFO	i_s_innodb_buffer_stats_fields_info[] =
 	 STRUCT_FLD(old_name,		""),
 	 STRUCT_FLD(open_method,	SKIP_OPEN_TABLE)},
 
-#define IDX_BUF_STATS_GET		20
+#define IDX_BUF_STATS_GET		19
 	{STRUCT_FLD(field_name,		"NUMBER_PAGES_GET"),
 	 STRUCT_FLD(field_length,	MY_INT64_NUM_DECIMAL_DIGITS),
 	 STRUCT_FLD(field_type,		MYSQL_TYPE_LONGLONG),
@@ -4671,7 +4662,7 @@ static ST_FIELD_INFO	i_s_innodb_buffer_stats_fields_info[] =
 	 STRUCT_FLD(old_name,		""),
 	 STRUCT_FLD(open_method,	SKIP_OPEN_TABLE)},
 
-#define IDX_BUF_STATS_HIT_RATE		21
+#define IDX_BUF_STATS_HIT_RATE		20
 	{STRUCT_FLD(field_name,		"HIT_RATE"),
 	 STRUCT_FLD(field_length,	MY_INT64_NUM_DECIMAL_DIGITS),
 	 STRUCT_FLD(field_type,		MYSQL_TYPE_LONGLONG),
@@ -4680,7 +4671,7 @@ static ST_FIELD_INFO	i_s_innodb_buffer_stats_fields_info[] =
 	 STRUCT_FLD(old_name,		""),
 	 STRUCT_FLD(open_method,	SKIP_OPEN_TABLE)},
 
-#define IDX_BUF_STATS_MADE_YOUNG_PCT	22
+#define IDX_BUF_STATS_MADE_YOUNG_PCT	21
 	{STRUCT_FLD(field_name,		"YOUNG_MAKE_PER_THOUSAND_GETS"),
 	 STRUCT_FLD(field_length,	MY_INT64_NUM_DECIMAL_DIGITS),
 	 STRUCT_FLD(field_type,		MYSQL_TYPE_LONGLONG),
@@ -4689,7 +4680,7 @@ static ST_FIELD_INFO	i_s_innodb_buffer_stats_fields_info[] =
 	 STRUCT_FLD(old_name,		""),
 	 STRUCT_FLD(open_method,	SKIP_OPEN_TABLE)},
 
-#define IDX_BUF_STATS_NOT_MADE_YOUNG_PCT 23
+#define IDX_BUF_STATS_NOT_MADE_YOUNG_PCT 22
 	{STRUCT_FLD(field_name,		"NOT_YOUNG_MAKE_PER_THOUSAND_GETS"),
 	 STRUCT_FLD(field_length,	MY_INT64_NUM_DECIMAL_DIGITS),
 	 STRUCT_FLD(field_type,		MYSQL_TYPE_LONGLONG),
@@ -4698,7 +4689,7 @@ static ST_FIELD_INFO	i_s_innodb_buffer_stats_fields_info[] =
 	 STRUCT_FLD(old_name,		""),
 	 STRUCT_FLD(open_method,	SKIP_OPEN_TABLE)},
 
-#define IDX_BUF_STATS_READ_AHREAD	24
+#define IDX_BUF_STATS_READ_AHREAD	23
 	{STRUCT_FLD(field_name,		"NUMBER_PAGES_READ_AHEAD"),
 	 STRUCT_FLD(field_length,	MY_INT64_NUM_DECIMAL_DIGITS),
 	 STRUCT_FLD(field_type,		MYSQL_TYPE_LONGLONG),
@@ -4707,7 +4698,7 @@ static ST_FIELD_INFO	i_s_innodb_buffer_stats_fields_info[] =
 	 STRUCT_FLD(old_name,		""),
 	 STRUCT_FLD(open_method,	SKIP_OPEN_TABLE)},
 
-#define IDX_BUF_STATS_READ_AHEAD_EVICTED 25
+#define IDX_BUF_STATS_READ_AHEAD_EVICTED 24
 	{STRUCT_FLD(field_name,		"NUMBER_READ_AHEAD_EVICTED"),
 	 STRUCT_FLD(field_length,	MY_INT64_NUM_DECIMAL_DIGITS),
 	 STRUCT_FLD(field_type,		MYSQL_TYPE_LONGLONG),
@@ -4716,7 +4707,7 @@ static ST_FIELD_INFO	i_s_innodb_buffer_stats_fields_info[] =
 	 STRUCT_FLD(old_name,		""),
 	 STRUCT_FLD(open_method,	SKIP_OPEN_TABLE)},
 
-#define	IDX_BUF_STATS_READ_AHEAD_RATE	26
+#define	IDX_BUF_STATS_READ_AHEAD_RATE	25
 	{STRUCT_FLD(field_name,		"READ_AHEAD_RATE"),
 	 STRUCT_FLD(field_length,	MAX_FLOAT_STR_LENGTH),
 	 STRUCT_FLD(field_type,		MYSQL_TYPE_FLOAT),
@@ -4725,7 +4716,7 @@ static ST_FIELD_INFO	i_s_innodb_buffer_stats_fields_info[] =
 	 STRUCT_FLD(old_name,		""),
 	 STRUCT_FLD(open_method,	SKIP_OPEN_TABLE)},
 
-#define	IDX_BUF_STATS_READ_AHEAD_EVICT_RATE 27
+#define	IDX_BUF_STATS_READ_AHEAD_EVICT_RATE 26
 	{STRUCT_FLD(field_name,		"READ_AHEAD_EVICTED_RATE"),
 	 STRUCT_FLD(field_length,	MAX_FLOAT_STR_LENGTH),
 	 STRUCT_FLD(field_type,		MYSQL_TYPE_FLOAT),
@@ -4734,7 +4725,7 @@ static ST_FIELD_INFO	i_s_innodb_buffer_stats_fields_info[] =
 	 STRUCT_FLD(old_name,		""),
 	 STRUCT_FLD(open_method,	SKIP_OPEN_TABLE)},
 
-#define IDX_BUF_STATS_LRU_IO_SUM	28
+#define IDX_BUF_STATS_LRU_IO_SUM	27
 	{STRUCT_FLD(field_name,		"LRU_IO_TOTAL"),
 	 STRUCT_FLD(field_length,	MY_INT64_NUM_DECIMAL_DIGITS),
 	 STRUCT_FLD(field_type,		MYSQL_TYPE_LONGLONG),
@@ -4743,7 +4734,7 @@ static ST_FIELD_INFO	i_s_innodb_buffer_stats_fields_info[] =
 	 STRUCT_FLD(old_name,		""),
 	 STRUCT_FLD(open_method,	SKIP_OPEN_TABLE)},
 
-#define IDX_BUF_STATS_LRU_IO_CUR	29
+#define IDX_BUF_STATS_LRU_IO_CUR	28
 	{STRUCT_FLD(field_name,		"LRU_IO_CURRENT"),
 	 STRUCT_FLD(field_length,	MY_INT64_NUM_DECIMAL_DIGITS),
 	 STRUCT_FLD(field_type,		MYSQL_TYPE_LONGLONG),
@@ -4752,7 +4743,7 @@ static ST_FIELD_INFO	i_s_innodb_buffer_stats_fields_info[] =
 	 STRUCT_FLD(old_name,		""),
 	 STRUCT_FLD(open_method,	SKIP_OPEN_TABLE)},
 
-#define IDX_BUF_STATS_UNZIP_SUM		30
+#define IDX_BUF_STATS_UNZIP_SUM		29
 	{STRUCT_FLD(field_name,		"UNCOMPRESS_TOTAL"),
 	 STRUCT_FLD(field_length,	MY_INT64_NUM_DECIMAL_DIGITS),
 	 STRUCT_FLD(field_type,		MYSQL_TYPE_LONGLONG),
@@ -4761,7 +4752,7 @@ static ST_FIELD_INFO	i_s_innodb_buffer_stats_fields_info[] =
 	 STRUCT_FLD(old_name,		""),
 	 STRUCT_FLD(open_method,	SKIP_OPEN_TABLE)},
 
-#define IDX_BUF_STATS_UNZIP_CUR		31
+#define IDX_BUF_STATS_UNZIP_CUR		30
 	{STRUCT_FLD(field_name,		"UNCOMPRESS_CURRENT"),
 	 STRUCT_FLD(field_length,	MY_INT64_NUM_DECIMAL_DIGITS),
 	 STRUCT_FLD(field_type,		MYSQL_TYPE_LONGLONG),
@@ -4806,9 +4797,6 @@ i_s_innodb_stats_fill(
 
 	OK(fields[IDX_BUF_STATS_OLD_LRU_LEN]->store(
 		   info->old_lru_len, true));
-
-	OK(fields[IDX_BUF_STATS_FREE_BUFFERS]->store(
-		   info->free_list_len, true));
 
 	OK(fields[IDX_BUF_STATS_FLUSH_LIST_LEN]->store(
 		   info->flush_list_len, true));
@@ -5345,9 +5333,6 @@ i_s_innodb_buffer_page_fill(
 		case BUF_BLOCK_ZIP_PAGE:
 		case BUF_BLOCK_ZIP_DIRTY:
 			state_str = NULL;
-			break;
-		case BUF_BLOCK_NOT_USED:
-			state_str = "NOT_USED";
 			break;
 		case BUF_BLOCK_READY_FOR_USE:
 			state_str = "READY_FOR_USE";
@@ -6071,7 +6056,6 @@ i_s_innodb_buf_page_lru_fill(
 		/* We should not see following states */
 		case BUF_BLOCK_POOL_WATCH:
 		case BUF_BLOCK_READY_FOR_USE:
-		case BUF_BLOCK_NOT_USED:
 		case BUF_BLOCK_MEMORY:
 		case BUF_BLOCK_REMOVE_HASH:
 			state_str = NULL;

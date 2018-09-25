@@ -412,13 +412,11 @@ void
 buf_get_total_list_len(
 /*===================*/
 	ulint*		LRU_len,	/*!< out: length of all LRU lists */
-	ulint*		free_len,	/*!< out: length of all free lists */
 	ulint*		flush_list_len)	/*!< out: length of all flush lists */
 {
 	ulint		i;
 
 	*LRU_len = 0;
-	*free_len = 0;
 	*flush_list_len = 0;
 
 	for (i = 0; i < srv_buf_pool_instances; i++) {
@@ -427,7 +425,6 @@ buf_get_total_list_len(
 		buf_pool = buf_pool_from_array(i);
 
 		*LRU_len += UT_LIST_GET_LEN(buf_pool->LRU);
-		*free_len += UT_LIST_GET_LEN(buf_pool->free);
 		*flush_list_len += UT_LIST_GET_LEN(buf_pool->flush_list);
 	}
 }
@@ -1388,7 +1385,7 @@ buf_block_init(
 	block->frame = frame;
 
 	block->page.buf_pool_index = buf_pool_index(buf_pool);
-	block->page.state = BUF_BLOCK_NOT_USED;
+	block->page.state = BUF_BLOCK_READY_FOR_USE;
 	block->page.buf_fix_count = 0;
 	block->page.io_fix = BUF_IO_NONE;
 	block->page.flush_observer = NULL;
@@ -1404,7 +1401,6 @@ buf_block_init(
 	ut_d(block->page.in_page_hash = FALSE);
 	ut_d(block->page.in_zip_hash = FALSE);
 	ut_d(block->page.in_flush_list = FALSE);
-	ut_d(block->page.in_free_list = FALSE);
 	ut_d(block->page.in_LRU_list = FALSE);
 	ut_d(block->in_unzip_LRU_list = FALSE);
 	ut_d(block->in_withdraw_list = FALSE);
@@ -1535,10 +1531,12 @@ buf_chunk_init(
 		buf_block_init(buf_pool, block, frame);
 		UNIV_MEM_INVALID(block->frame, UNIV_PAGE_SIZE);
 
+#if 0 // TODO laurynas: add block to LRU
 		/* Add the block to the free list */
 		UT_LIST_ADD_LAST(buf_pool->free, &block->page);
 
 		ut_d(block->page.in_free_list = TRUE);
+#endif
 		ut_ad(buf_pool_from_block(block) == buf_pool);
 
 		block++;
@@ -1634,7 +1632,6 @@ buf_chunk_not_freed(
 			contain compressed block descriptors. */
 			ut_error;
 			break;
-		case BUF_BLOCK_NOT_USED:
 		case BUF_BLOCK_READY_FOR_USE:
 		case BUF_BLOCK_MEMORY:
 		case BUF_BLOCK_REMOVE_HASH:
@@ -1707,7 +1704,7 @@ buf_pool_init_instance(
 	/* 1. Initialize general fields
 	------------------------------- */
 	mutex_create(LATCH_ID_BUF_POOL_LRU_LIST, &buf_pool->LRU_list_mutex);
-	mutex_create(LATCH_ID_BUF_POOL_FREE_LIST, &buf_pool->free_list_mutex);
+	mutex_create(LATCH_ID_BUF_POOL_FREE_LIST, &buf_pool->withdraw_list_mutex);
 	mutex_create(LATCH_ID_BUF_POOL_ZIP_FREE, &buf_pool->zip_free_mutex);
 	mutex_create(LATCH_ID_BUF_POOL_ZIP_HASH, &buf_pool->zip_hash_mutex);
 	mutex_create(LATCH_ID_BUF_POOL_FLUSH_STATE,
@@ -1728,7 +1725,6 @@ buf_pool_init_instance(
 		buf_pool->chunks_old = NULL;
 
 		UT_LIST_INIT(buf_pool->LRU, &buf_page_t::LRU);
-		UT_LIST_INIT(buf_pool->free, &buf_page_t::list);
 		UT_LIST_INIT(buf_pool->withdraw, &buf_page_t::list);
 		buf_pool->withdraw_target = 0;
 		UT_LIST_INIT(buf_pool->flush_list, &buf_page_t::list);
@@ -1850,7 +1846,7 @@ buf_pool_free_instance(
 	buf_page_t*	prev_bpage = 0;
 
 	mutex_free(&buf_pool->LRU_list_mutex);
-	mutex_free(&buf_pool->free_list_mutex);
+	mutex_free(&buf_pool->withdraw_list_mutex);
 	mutex_free(&buf_pool->zip_free_mutex);
 	mutex_free(&buf_pool->zip_hash_mutex);
 	mutex_free(&buf_pool->flush_state_mutex);
@@ -1979,6 +1975,7 @@ buf_pool_free(
 	buf_pool_ptr = NULL;
 }
 
+#if 0 // TODO laurynas comnpressed page support
 /** Reallocate a control block.
 @param[in]	buf_pool	buffer pool instance
 @param[in]	block		pointer to control block
@@ -2120,6 +2117,7 @@ buf_page_realloc(
 
 	return(true); /* free_list was enough */
 }
+#endif
 
 /** Sets the global variable that feeds MySQL's innodb_buffer_pool_resize_status
 to the specified string. The format and the following parameters are the
@@ -2213,7 +2211,9 @@ buf_pool_withdraw_blocks(
 	buf_pool_t*	buf_pool)
 {
 	buf_block_t*	block;
+#if 0 // TODO laurynas buffer pool resize
 	ulint		loop_count = 0;
+#endif
 	ulint		i = buf_pool_index(buf_pool);
 	ulint		lru_len;
 
@@ -2228,7 +2228,8 @@ buf_pool_withdraw_blocks(
 	lru_len = UT_LIST_GET_LEN(buf_pool->LRU);
 	mutex_exit(&buf_pool->LRU_list_mutex);
 
-	mutex_enter(&buf_pool->free_list_mutex);
+	mutex_enter(&buf_pool->withdraw_list_mutex);
+#if 0 // TODO laurynas buffer pool resize
 	while (UT_LIST_GET_LEN(buf_pool->withdraw)
 	       < buf_pool->withdraw_target) {
 
@@ -2388,7 +2389,8 @@ buf_pool_withdraw_blocks(
 			return(true);
 		}
 	}
-	mutex_exit(&buf_pool->free_list_mutex);
+#endif
+	mutex_exit(&buf_pool->withdraw_list_mutex);
 
 	/* confirm withdrawn enough */
 	const buf_chunk_t*	chunk
@@ -2399,20 +2401,20 @@ buf_pool_withdraw_blocks(
 	while (chunk < echunk) {
 		block = chunk->blocks;
 		for (ulint j = chunk->size; j--; block++) {
-			/* If !=BUF_BLOCK_NOT_USED block in the
+			/* If !=BUF_BLOCK_READY_FOR_USE block in the
 			withdrawn area, it means corruption
 			something */
 			ut_a(buf_block_get_state(block)
-				== BUF_BLOCK_NOT_USED);
+				== BUF_BLOCK_READY_FOR_USE);
 			ut_ad(block->in_withdraw_list);
 		}
 		++chunk;
 	}
 
-	mutex_enter(&buf_pool->free_list_mutex);
+	mutex_enter(&buf_pool->withdraw_list_mutex);
 	ib::info() << "buffer pool " << i << " : withdrawn target "
 		<< UT_LIST_GET_LEN(buf_pool->withdraw) << " blocks.";
-	mutex_exit(&buf_pool->free_list_mutex);
+	mutex_exit(&buf_pool->withdraw_list_mutex);
 
 	/* retry is not needed */
 	++buf_withdraw_clock;
@@ -2551,9 +2553,9 @@ buf_pool_resize()
 		// No locking needed to read, same thread updated those
 		ut_ad(buf_pool->curr_size == buf_pool->old_size);
 		ut_ad(buf_pool->n_chunks_new == buf_pool->n_chunks);
-		mutex_enter(&buf_pool->free_list_mutex);
+		mutex_enter(&buf_pool->withdraw_list_mutex);
 		ut_ad(UT_LIST_GET_LEN(buf_pool->withdraw) == 0);
-		mutex_exit(&buf_pool->free_list_mutex);
+		mutex_exit(&buf_pool->withdraw_list_mutex);
 #ifdef UNIV_DEBUG
 		buf_flush_list_mutex_enter(buf_pool);
 		ut_ad(buf_pool->flush_rbt == NULL);
@@ -2725,7 +2727,7 @@ withdraw_retry:
 	for (ulint i = 0; i < srv_buf_pool_instances; ++i)
 		mutex_enter(&(buf_pool_from_array(i)->zip_free_mutex));
 	for (ulint i = 0; i < srv_buf_pool_instances; ++i)
-		mutex_enter(&(buf_pool_from_array(i)->free_list_mutex));
+		mutex_enter(&(buf_pool_from_array(i)->withdraw_list_mutex));
 	for (ulint i = 0; i < srv_buf_pool_instances; ++i)
 		mutex_enter(&(buf_pool_from_array(i)->zip_hash_mutex));
 	for (ulint i = 0; i < srv_buf_pool_instances; ++i)
@@ -2936,7 +2938,7 @@ calc_buf_pool_size:
 
 		mutex_exit(&buf_pool->flush_state_mutex);
 		mutex_exit(&buf_pool->zip_hash_mutex);
-		mutex_exit(&buf_pool->free_list_mutex);
+		mutex_exit(&buf_pool->withdraw_list_mutex);
 		mutex_exit(&buf_pool->zip_free_mutex);
 		hash_unlock_x_all(buf_pool->page_hash);
 		mutex_exit(&buf_pool->LRU_list_mutex);
@@ -3127,7 +3129,6 @@ buf_relocate(
 #ifdef UNIV_DEBUG
 	switch (buf_page_get_state(bpage)) {
 	case BUF_BLOCK_POOL_WATCH:
-	case BUF_BLOCK_NOT_USED:
 	case BUF_BLOCK_READY_FOR_USE:
 	case BUF_BLOCK_FILE_PAGE:
 	case BUF_BLOCK_MEMORY:
@@ -3729,7 +3730,6 @@ err_exit:
 
 	switch (buf_page_get_state(bpage)) {
 	case BUF_BLOCK_POOL_WATCH:
-	case BUF_BLOCK_NOT_USED:
 	case BUF_BLOCK_READY_FOR_USE:
 	case BUF_BLOCK_MEMORY:
 	case BUF_BLOCK_REMOVE_HASH:
@@ -4505,7 +4505,6 @@ got_block:
 		break;
 
 	case BUF_BLOCK_POOL_WATCH:
-	case BUF_BLOCK_NOT_USED:
 	case BUF_BLOCK_READY_FOR_USE:
 	case BUF_BLOCK_MEMORY:
 	case BUF_BLOCK_REMOVE_HASH:
@@ -5308,7 +5307,6 @@ buf_page_init_for_read(
 		ut_d(bpage->in_page_hash = FALSE);
 		ut_d(bpage->in_zip_hash = FALSE);
 		ut_d(bpage->in_flush_list = FALSE);
-		ut_d(bpage->in_free_list = FALSE);
 		ut_d(bpage->in_LRU_list = FALSE);
 
 		ut_d(bpage->in_page_hash = TRUE);
@@ -6145,7 +6143,6 @@ buf_pool_validate_instance(
 	ulint		n_list_flush	= 0;
 	ulint		n_lru		= 0;
 	ulint		n_flush		= 0;
-	ulint		n_free		= 0;
 	ulint		n_zip		= 0;
 
 	ut_ad(buf_pool);
@@ -6153,7 +6150,6 @@ buf_pool_validate_instance(
 	mutex_enter(&buf_pool->LRU_list_mutex);
 	hash_lock_x_all(buf_pool->page_hash);
 	mutex_enter(&buf_pool->zip_mutex);
-	mutex_enter(&buf_pool->free_list_mutex);
 	mutex_enter(&buf_pool->flush_state_mutex);
 
 	chunk = buf_pool->chunks;
@@ -6214,10 +6210,6 @@ buf_pool_validate_instance(
 				}
 
 				n_lru++;
-				break;
-
-			case BUF_BLOCK_NOT_USED:
-				n_free++;
 				break;
 
 			case BUF_BLOCK_READY_FOR_USE:
@@ -6298,7 +6290,6 @@ buf_pool_validate_instance(
 			break;
 		case BUF_BLOCK_POOL_WATCH:
 		case BUF_BLOCK_ZIP_PAGE:
-		case BUF_BLOCK_NOT_USED:
 		case BUF_BLOCK_READY_FOR_USE:
 		case BUF_BLOCK_MEMORY:
 		case BUF_BLOCK_REMOVE_HASH:
@@ -6316,9 +6307,9 @@ buf_pool_validate_instance(
 	mutex_exit(&buf_pool->zip_mutex);
 
 	if (buf_pool->curr_size == buf_pool->old_size
-	    && n_lru + n_free > buf_pool->curr_size + n_zip) {
+	    && n_lru > buf_pool->curr_size + n_zip) {
 
-		ib::fatal() << "n_LRU " << n_lru << ", n_free " << n_free
+		ib::fatal() << "n_LRU " << n_lru
 			<< ", pool " << buf_pool->curr_size
 			<< " zip " << n_zip << ". Aborting...";
 	}
@@ -6326,16 +6317,6 @@ buf_pool_validate_instance(
 	ut_a(UT_LIST_GET_LEN(buf_pool->LRU) == n_lru);
 
 	mutex_exit(&buf_pool->LRU_list_mutex);
-
-	if (buf_pool->curr_size == buf_pool->old_size
-	    && UT_LIST_GET_LEN(buf_pool->free) > n_free) {
-
-		ib::fatal() << "Free list len "
-			<< UT_LIST_GET_LEN(buf_pool->free)
-			<< ", free blocks " << n_free << ". Aborting...";
-	}
-
-	mutex_exit(&buf_pool->free_list_mutex);
 
 	ut_a(buf_pool->n_flush[BUF_FLUSH_LIST] == n_list_flush);
 	ut_a(buf_pool->n_flush[BUF_FLUSH_LRU] == n_lru_flush);
@@ -6399,7 +6380,6 @@ buf_print_instance(
 	counts = static_cast<ulint*>(ut_malloc_nokey(sizeof(ulint) * size));
 
 	mutex_enter(&buf_pool->LRU_list_mutex);
-	mutex_enter(&buf_pool->free_list_mutex);
 	mutex_enter(&buf_pool->flush_state_mutex);
 	buf_flush_list_mutex_enter(buf_pool);
 
@@ -6407,7 +6387,6 @@ buf_print_instance(
 
 	buf_flush_list_mutex_exit(buf_pool);
 	mutex_exit(&buf_pool->flush_state_mutex);
-	mutex_exit(&buf_pool->free_list_mutex);
 
 	/* Count the number of blocks belonging to each index in the buffer */
 
@@ -6567,7 +6546,6 @@ buf_get_latched_pages_number_instance(
 			break;
 		case BUF_BLOCK_POOL_WATCH:
 		case BUF_BLOCK_ZIP_PAGE:
-		case BUF_BLOCK_NOT_USED:
 		case BUF_BLOCK_READY_FOR_USE:
 		case BUF_BLOCK_MEMORY:
 			ut_error;
@@ -6632,13 +6610,12 @@ buf_get_modified_ratio_pct(void)
 {
 	double		ratio;
 	ulint		lru_len = 0;
-	ulint		free_len = 0;
 	ulint		flush_list_len = 0;
 
-	buf_get_total_list_len(&lru_len, &free_len, &flush_list_len);
+	buf_get_total_list_len(&lru_len, &flush_list_len);
 
 	ratio = static_cast<double>(100 * flush_list_len)
-		/ (1 + lru_len + free_len);
+		/ (1 + lru_len);
 
 	/* 1 + is there to avoid division by zero */
 
@@ -6668,7 +6645,6 @@ buf_stats_aggregate_pool_info(
 	total_info->pool_size_bytes += pool_info->pool_size_bytes;
 	total_info->lru_len += pool_info->lru_len;
 	total_info->old_lru_len += pool_info->old_lru_len;
-	total_info->free_list_len += pool_info->free_list_len;
 	total_info->flush_list_len += pool_info->flush_list_len;
 	total_info->n_pend_unzip += pool_info->n_pend_unzip;
 	total_info->n_pend_reads += pool_info->n_pend_reads;
@@ -6730,8 +6706,6 @@ buf_stats_get_pool_info(
 	pool_info->lru_len = UT_LIST_GET_LEN(buf_pool->LRU);
 
 	pool_info->old_lru_len = buf_pool->LRU_old_len;
-
-	pool_info->free_list_len = UT_LIST_GET_LEN(buf_pool->free);
 
 	pool_info->flush_list_len = UT_LIST_GET_LEN(buf_pool->flush_list);
 
@@ -6848,7 +6822,6 @@ buf_print_io_instance(
 	fprintf(file,
 		"Buffer pool size   " ULINTPF "\n"
 		"Buffer pool size, bytes " ULINTPF "\n"
-		"Free buffers       " ULINTPF "\n"
 		"Database pages     " ULINTPF "\n"
 		"Old database pages " ULINTPF "\n"
 		"Modified db pages  " ULINTPF "\n"
@@ -6858,7 +6831,6 @@ buf_print_io_instance(
 		", single page " ULINTPF "\n",
 		pool_info->pool_size,
 		pool_info->pool_size_bytes,
-		pool_info->free_list_len,
 		pool_info->lru_len,
 		pool_info->old_lru_len,
 		pool_info->flush_list_len,
@@ -7051,27 +7023,6 @@ buf_pool_check_no_pending_io(void)
 	return(pending_io);
 }
 
-#if 0
-Code currently not used
-/*********************************************************************//**
-Gets the current length of the free list of buffer blocks.
-@return length of the free list */
-ulint
-buf_get_free_list_len(void)
-/*=======================*/
-{
-	ulint	len;
-
-	mutex_enter(&buf_pool->free_list_mutex);
-
-	len = UT_LIST_GET_LEN(buf_pool->free);
-
-	mutex_exit(&buf_pool->free_list_mutex);
-
-	return(len);
-}
-#endif
-
 #else /* !UNIV_HOTBACKUP */
 
 /** Inits a page to the buffer buf_pool, for use in mysqlbackup --restore.
@@ -7127,14 +7078,12 @@ operator<<(
 {
 	/* These locking requirements might be relaxed if desired */
 	ut_ad(mutex_own(&buf_pool.LRU_list_mutex));
-	ut_ad(mutex_own(&buf_pool.free_list_mutex));
 	ut_ad(mutex_own(&buf_pool.flush_state_mutex));
 	ut_ad(buf_flush_list_mutex_own(&buf_pool));
 
 	out << "[buffer pool instance: "
 		<< "buf_pool size=" << buf_pool.curr_size
 		<< ", database pages=" << UT_LIST_GET_LEN(buf_pool.LRU)
-		<< ", free pages=" << UT_LIST_GET_LEN(buf_pool.free)
 		<< ", modified database pages="
 		<< UT_LIST_GET_LEN(buf_pool.flush_list)
 		<< ", n pending decompressions=" << buf_pool.n_pend_unzip
