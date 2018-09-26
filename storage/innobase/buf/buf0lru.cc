@@ -1461,6 +1461,7 @@ buf_LRU_get_free_block(
 	bool		started_monitor	= false;
 	ulint		started_ms	= 0;
 	bool		one_evict_attempted = false;
+	bool		lru_flush_requested = false;
 
 	ut_ad(!mutex_own(&buf_pool->LRU_list_mutex));
 
@@ -1514,8 +1515,11 @@ loop:
 			n_iterations++;
 			goto loop;
 		}
-		else
-			os_event_set(buf_pool->lru_flush_requested);
+	}
+
+	if (!lru_flush_requested) {
+		lru_flush_requested = true;
+		os_event_set(buf_pool->lru_flush_requested);
 	}
 
 	freed = false;
