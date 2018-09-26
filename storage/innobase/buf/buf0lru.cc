@@ -1078,7 +1078,8 @@ buf_LRU_free_from_unzip_LRU_list(
 	for (buf_block_t* block = UT_LIST_GET_LAST(buf_pool->unzip_LRU);
 	     block != NULL
 	     && !freed
-	     && buf_LRU_should_continue_scan(scan_depth, BUF_LRU_SEARCH_SCAN_THRESHOLD, scanned);
+	     && buf_LRU_should_continue_scan(scan_depth, srv_LRU_scan_depth,
+					     scanned);
 	     ++scanned) {
 
 		buf_block_t*	prev_block;
@@ -1130,7 +1131,9 @@ buf_LRU_free_from_common_LRU_list(
 	for (buf_page_t* bpage = buf_pool->lru_scan_itr.start();
 	     bpage != NULL
 	     && !freed
-	     && buf_LRU_should_continue_scan(scan_depth, srv_LRU_scan_depth, scanned);
+	     && buf_LRU_should_continue_scan(scan_depth,
+					     BUF_LRU_SEARCH_SCAN_THRESHOLD,
+					     scanned);
 	     ++scanned, bpage = buf_pool->lru_scan_itr.get()) {
 
 		buf_page_t*	prev = UT_LIST_GET_PREV(LRU, bpage);
