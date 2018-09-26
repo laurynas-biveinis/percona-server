@@ -1460,8 +1460,7 @@ buf_LRU_get_free_block(
 	bool		mon_value_was	= false;
 	bool		started_monitor	= false;
 	ulint		started_ms	= 0;
-	bool		one_evict_attempted = false;
-	bool		lru_flush_requested = false;
+	bool		last_lru_page_evict_failed = false;
 
 	ut_ad(!mutex_own(&buf_pool->LRU_list_mutex));
 
@@ -1509,17 +1508,16 @@ loop:
 
 	MONITOR_INC( MONITOR_LRU_GET_FREE_LOOPS );
 
-	if (!one_evict_attempted) {
-		one_evict_attempted = true;
-		if (buf_LRU_scan_and_free_block(buf_pool, LRU_SCAN_DEPTH_ONE)) {
+	if (!last_lru_page_evict_failed) {
+		last_lru_page_evict_failed =
+			!buf_LRU_scan_and_free_block(buf_pool,
+						     LRU_SCAN_DEPTH_ONE);
+		if (!last_lru_page_evict_failed) {
 			n_iterations++;
 			goto loop;
+		} else {
+			os_event_set(buf_pool->lru_flush_requested);
 		}
-	}
-
-	if (!lru_flush_requested) {
-		lru_flush_requested = true;
-		os_event_set(buf_pool->lru_flush_requested);
 	}
 
 	freed = false;
