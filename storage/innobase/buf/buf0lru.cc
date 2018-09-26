@@ -1460,6 +1460,7 @@ buf_LRU_get_free_block(
 	bool		mon_value_was	= false;
 	bool		started_monitor	= false;
 	ulint		started_ms	= 0;
+	bool		one_evict_attempted = false;
 
 	ut_ad(!mutex_own(&buf_pool->LRU_list_mutex));
 
@@ -1507,9 +1508,9 @@ loop:
 
 	MONITOR_INC( MONITOR_LRU_GET_FREE_LOOPS );
 
-	if (n_iterations == 0) {
-		freed = buf_LRU_scan_and_free_block(buf_pool, LRU_SCAN_DEPTH_ONE);
-		if (freed) {
+	if (!one_evict_attempted) {
+		one_evict_attempted = true;
+		if (buf_LRU_scan_and_free_block(buf_pool, LRU_SCAN_DEPTH_ONE)) {
 			n_iterations++;
 			goto loop;
 		}
