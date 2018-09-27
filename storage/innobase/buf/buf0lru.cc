@@ -1467,6 +1467,19 @@ buf_LRU_get_free_block(
 
 	ut_ad(!mutex_own(&buf_pool->LRU_list_mutex));
 
+	uintmax_t current_time = ut_time_us(NULL);
+	mutex_enter(&buf_pool->flush_state_mutex);
+	if (buf_pool->last_interval_start + 1000000 < current_time) {
+		fprintf(stderr, "Last no smaller than 1s interval demand is %llu for instance %lu\n",
+			buf_pool->last_interval_free_page_demand,
+			buf_pool_index(buf_pool));
+		buf_pool->last_interval_free_page_demand = 1;
+		buf_pool->last_interval_start = current_time;
+	} else {
+		buf_pool->last_interval_free_page_demand++;
+	}
+	mutex_exit(&buf_pool->flush_state_mutex);
+
 	MONITOR_INC(MONITOR_LRU_GET_FREE_SEARCH);
 loop:
 	buf_LRU_check_size_of_non_data_objects(buf_pool);

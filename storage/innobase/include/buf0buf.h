@@ -2180,6 +2180,8 @@ struct buf_pool_t{
 					when there is no flush batch
 					of the given type running. Protected by
 					flush_state_mutex. */
+	uintmax_t	last_interval_start;
+	uint64_t	last_interval_free_page_demand;
 	os_event_t	lru_flush_requested;
 	ib_rbt_t*	flush_rbt;	/*!< a red-black tree is used
 					exclusively during recovery to

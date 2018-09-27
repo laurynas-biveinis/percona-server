@@ -1747,6 +1747,8 @@ buf_pool_init_instance(
 		}
 
 		buf_pool->curr_size = 0;
+                buf_pool->last_interval_start = 0;
+                buf_pool->last_interval_free_page_demand = 0;
 		chunk = buf_pool->chunks;
 
 		do {
