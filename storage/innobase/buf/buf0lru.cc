@@ -1471,7 +1471,7 @@ buf_LRU_get_free_block(
 	mutex_enter(&buf_pool->flush_state_mutex);
 	if (buf_pool->last_interval_start + 1000000 < current_time) {
 		fprintf(stderr, "Last no smaller than 1s interval demand is %llu for instance %lu\n",
-			buf_pool->last_interval_free_page_demand,
+			(unsigned long long)buf_pool->last_interval_free_page_demand,
 			buf_pool_index(buf_pool));
 		buf_pool->last_interval_free_page_demand = 1;
 		buf_pool->last_interval_start = current_time;
