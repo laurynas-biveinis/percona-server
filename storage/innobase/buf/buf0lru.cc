@@ -1135,7 +1135,7 @@ buf_LRU_free_from_common_LRU_list(
 	     && buf_LRU_should_continue_scan(scan_depth,
 					     BUF_LRU_SEARCH_SCAN_THRESHOLD,
 					     scanned);
-	     ++scanned_with_locked, bpage = buf_pool->lru_scan_itr.get()) {
+	     bpage = buf_pool->lru_scan_itr.get()) {
 
 		buf_page_t*	prev = UT_LIST_GET_PREV(LRU, bpage);
 		BPageMutex*	mutex = buf_page_get_mutex(bpage);
@@ -1148,6 +1148,8 @@ buf_LRU_free_from_common_LRU_list(
 		unsigned	accessed = buf_page_is_accessed(bpage);
 
 		const int lock_failed = mutex_enter_nowait(mutex);
+
+		scanned_with_locked++;
 
 		if (lock_failed)
 			continue;
