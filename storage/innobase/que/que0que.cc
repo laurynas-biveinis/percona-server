@@ -439,6 +439,7 @@ void que_graph_free_recursive(que_node_t *node) /*!< in: query graph node */
 
       break;
     case QUE_NODE_PURGE:
+    case QUE_NODE_TRUNCATE:
       purge = static_cast<purge_node_t *>(node);
 
       mem_heap_free(purge->heap);
@@ -837,6 +838,8 @@ static MY_ATTRIBUTE((warn_unused_result)) const char *que_node_type_string(
       return ("UNDO ROW");
     case QUE_NODE_PURGE:
       return ("PURGE ROW");
+    case QUE_NODE_TRUNCATE:
+      return ("TRUNCATE");
     case QUE_NODE_ROLLBACK:
       return ("ROLLBACK");
     case QUE_NODE_FOR:
@@ -931,6 +934,8 @@ que_thr_t *que_thr_step(que_thr_t *thr) /*!< in: query thread */
     thr = row_undo_step(thr);
   } else if (type == QUE_NODE_PURGE) {
     thr = row_purge_step(thr);
+  } else if (type == QUE_NODE_TRUNCATE) {
+    thr = row_truncate_step(thr);
   } else if (type == QUE_NODE_RETURN) {
     thr = return_step(thr);
   } else if (type == QUE_NODE_EXIT) {

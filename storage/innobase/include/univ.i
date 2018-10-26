@@ -41,6 +41,10 @@ this program; if not, write to the Free Software Foundation, Inc.,
 #ifndef univ_i
 #define univ_i
 
+#ifndef __linux__
+#define __thread
+#endif
+
 #ifdef UNIV_HOTBACKUP
 #include "hb_univ.i"
 #endif /* UNIV_HOTBACKUP */

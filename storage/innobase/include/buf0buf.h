@@ -1781,6 +1781,12 @@ struct buf_pool_t {
   when there is no flush batch
   of the given type running. Protected by
   flush_state_mutex. */
+  uintmax_t last_interval_start;
+  uintmax_t last_interval_start2;
+  uint64_t last_interval_free_page_demand;
+  uint64_t last_interval_free_page_demand_old;
+
+  os_event_t lru_flush_requested;
   ib_rbt_t *flush_rbt;    /*!< a red-black tree is used
                           exclusively during recovery to
                           speed up insertions in the
@@ -1896,6 +1902,19 @@ struct buf_pool_t {
   individual watch page is protected by
   a corresponding individual page_hash
   latch. */
+
+  ulint waiters;
+  ulint n_iter;
+  ulint flush_list_flushed;
+  ulint flush_list_flushed_old;
+  ulint demand;
+  ulint last_interval_free_page;
+  ulint last_interval_free_page_old;
+  ulint last_interval_free_page_evict;
+  ulint last_interval_free_page_evict_old;
+  ulint scanned_dirty_max_old;
+  ulint scanned_dirty_max;
+  ulint dirty_max_avg;
 
 #if BUF_BUDDY_LOW > UNIV_ZIP_SIZE_MIN
 #error "BUF_BUDDY_LOW > UNIV_ZIP_SIZE_MIN"

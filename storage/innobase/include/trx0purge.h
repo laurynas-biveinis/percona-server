@@ -610,6 +610,8 @@ struct trx_purge_t {
                                 without holding the latch. */
   que_t *query;                 /*!< The query graph which will do the
                                 parallelized purge operation */
+  que_t *truncate;              /*!< The query graph which will do the
+                                parallelized truncate operation */
   ReadView view;                /*!< The purge will not remove undo logs
                                 which are >= this view (purge view) */
   bool view_active;             /*!< true if view is active */
@@ -696,6 +698,11 @@ struct TrxUndoRsegsIterator {
   /** Sentinel value */
   static const TrxUndoRsegs NullElement;
 };
+
+/** Removes unnecessary history data from a rollback segment. */
+void trx_purge_truncate_rseg_history(
+    trx_rseg_t *rseg,           /*!< in: rollback segment */
+    const purge_iter_t *limit); /*!< in: truncate offset */
 
 #include "trx0purge.ic"
 

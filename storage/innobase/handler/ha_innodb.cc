@@ -20649,7 +20649,55 @@ static MYSQL_SYSVAR_BOOL(
 static MYSQL_SYSVAR_ULONG(lru_scan_depth, srv_LRU_scan_depth,
                           PLUGIN_VAR_RQCMDARG,
                           "How deep to scan LRU to keep it clean", NULL, NULL,
-                          1024, 100, ~0UL, 0);
+                          1024, 0, ~0UL, 0);
+
+static MYSQL_SYSVAR_ULONG(var1, srv_var1, PLUGIN_VAR_RQCMDARG,
+                          "How deep to scan LRU to keep it clean", NULL, NULL,
+                          0, 0, ~0UL, 0);
+
+static MYSQL_SYSVAR_ULONG(var2, srv_var2, PLUGIN_VAR_RQCMDARG,
+                          "How deep to scan LRU to keep it clean", NULL, NULL,
+                          0, 0, ~0UL, 0);
+
+static MYSQL_SYSVAR_ULONG(var3, srv_var3, PLUGIN_VAR_RQCMDARG,
+                          "How deep to scan LRU to keep it clean", NULL, NULL,
+                          0, 0, ~0UL, 0);
+
+static MYSQL_SYSVAR_ULONG(var4, srv_var4, PLUGIN_VAR_RQCMDARG,
+                          "How deep to scan LRU to keep it clean", NULL, NULL,
+                          0, 0, ~0UL, 0);
+
+static MYSQL_SYSVAR_ULONG(var5, srv_var5, PLUGIN_VAR_RQCMDARG,
+                          "How deep to scan LRU to keep it clean", NULL, NULL,
+                          0, 0, ~0UL, 0);
+
+static MYSQL_SYSVAR_ULONG(var6, srv_var6, PLUGIN_VAR_RQCMDARG,
+                          "How deep to scan LRU to keep it clean", NULL, NULL,
+                          0, 0, ~0UL, 0);
+
+static MYSQL_SYSVAR_ULONG(var7, srv_var7, PLUGIN_VAR_RQCMDARG,
+                          "How deep to scan LRU to keep it clean", NULL, NULL,
+                          0, 0, ~0UL, 0);
+
+static MYSQL_SYSVAR_ULONG(var8, srv_var8, PLUGIN_VAR_RQCMDARG,
+                          "How deep to scan LRU to keep it clean", NULL, NULL,
+                          0, 0, ~0UL, 0);
+
+static MYSQL_SYSVAR_ULONG(var9, srv_var9, PLUGIN_VAR_RQCMDARG,
+                          "How deep to scan LRU to keep it clean", NULL, NULL,
+                          0, 0, ~0UL, 0);
+
+static MYSQL_SYSVAR_ULONG(var10, srv_var10, PLUGIN_VAR_RQCMDARG,
+                          "How deep to scan LRU to keep it clean", NULL, NULL,
+                          0, 0, ~0UL, 0);
+
+static MYSQL_SYSVAR_ULONG(var11, srv_var11, PLUGIN_VAR_RQCMDARG,
+                          "How deep to scan LRU to keep it clean", NULL, NULL,
+                          0, 0, ~0UL, 0);
+
+static MYSQL_SYSVAR_ULONG(var12, srv_var12, PLUGIN_VAR_RQCMDARG,
+                          "How deep to scan LRU to keep it clean", NULL, NULL,
+                          0, 0, ~0UL, 0);
 
 static MYSQL_SYSVAR_ULONG(flush_neighbors, srv_flush_neighbors,
                           PLUGIN_VAR_OPCMDARG,
@@ -21429,6 +21477,18 @@ static MYSQL_SYSVAR_BOOL(encrypt_online_alter_logs,
                          PLUGIN_VAR_NOCMDARG | PLUGIN_VAR_READONLY,
                          "Encrypt online alter logs.", nullptr, nullptr, false);
 
+static MYSQL_SYSVAR_ULONG(trace_purging, srv_trace_purging, PLUGIN_VAR_RQCMDARG,
+                          "If true, trace purging in the error log", NULL, NULL,
+                          0, 0, ~0UL, 0);
+
+static MYSQL_SYSVAR_ULONG(var21, srv_var21, PLUGIN_VAR_RQCMDARG,
+                          "If true, trace purging in the error log", NULL, NULL,
+                          0, 0, ~0UL, 0);
+
+static MYSQL_SYSVAR_ULONG(var22, srv_var22, PLUGIN_VAR_RQCMDARG,
+                          "If true, trace purging in the error log", NULL, NULL,
+                          0, 0, ~0UL, 0);
+
 static SYS_VAR *innobase_system_variables[] = {
     MYSQL_SYSVAR(api_trx_level),
     MYSQL_SYSVAR(api_bk_commit_interval),
@@ -21448,6 +21508,18 @@ static SYS_VAR *innobase_system_variables[] = {
     MYSQL_SYSVAR(buffer_pool_load_abort),
     MYSQL_SYSVAR(buffer_pool_load_at_startup),
     MYSQL_SYSVAR(lru_scan_depth),
+    MYSQL_SYSVAR(var1),
+    MYSQL_SYSVAR(var2),
+    MYSQL_SYSVAR(var3),
+    MYSQL_SYSVAR(var4),
+    MYSQL_SYSVAR(var5),
+    MYSQL_SYSVAR(var6),
+    MYSQL_SYSVAR(var7),
+    MYSQL_SYSVAR(var8),
+    MYSQL_SYSVAR(var9),
+    MYSQL_SYSVAR(var10),
+    MYSQL_SYSVAR(var11),
+    MYSQL_SYSVAR(var12),
     MYSQL_SYSVAR(flush_neighbors),
     MYSQL_SYSVAR(checksum_algorithm),
     MYSQL_SYSVAR(log_checksums),
@@ -21612,6 +21684,9 @@ static SYS_VAR *innobase_system_variables[] = {
     MYSQL_SYSVAR(cleaner_max_lru_time),
     MYSQL_SYSVAR(cleaner_max_flush_time),
 #endif /* defined UNIV_DEBUG || defined UNIV_PERF_DEBUG */
+    MYSQL_SYSVAR(trace_purging),
+    MYSQL_SYSVAR(var21),
+    MYSQL_SYSVAR(var22),
     MYSQL_SYSVAR(status_output),
     MYSQL_SYSVAR(status_output_locks),
     MYSQL_SYSVAR(cleaner_lsn_age_factor),

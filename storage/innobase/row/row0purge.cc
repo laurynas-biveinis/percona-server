@@ -95,6 +95,24 @@ purge_node_t *row_purge_node_create(que_thr_t *parent, mem_heap_t *heap) {
   return (node);
 }
 
+purge_node_t *row_truncate_node_create(
+    que_thr_t *parent, /*!< in: parent node  */
+    mem_heap_t *heap)  /*!< in: memory heap where created */
+{
+  purge_node_t *node;
+
+  ut_ad(parent && heap);
+
+  node = static_cast<purge_node_t *>(mem_heap_zalloc(heap, sizeof(*node)));
+
+  node->common.type = QUE_NODE_TRUNCATE;
+  node->common.parent = parent;
+  node->done = true;
+  node->heap = mem_heap_create(256);
+
+  return (node);
+}
+
 /** Repositions the pcur in the purge node on the clustered index record,
  if found. If the record is not found, close pcur.
  @return true if the record was found */
@@ -1185,6 +1203,65 @@ que_thr_t *row_purge_step(que_thr_t *thr) {
 
   if (thr->prebuilt != nullptr && thr->prebuilt->compress_heap != nullptr)
     mem_heap_empty(thr->prebuilt->compress_heap);
+
+  return (thr);
+}
+
+/** Reset the purge query thread. */
+UNIV_INLINE
+void row_truncate_end(que_thr_t *thr) /*!< in: query thread */
+{
+  purge_node_t *node;
+
+  ut_ad(thr);
+
+  node = static_cast<purge_node_t *>(thr->run_node);
+
+  ut_ad(que_node_get_type(node) == QUE_NODE_TRUNCATE);
+
+  thr->run_node = que_node_get_parent(node);
+
+  node->rsegs = NULL;
+  node->limit = NULL;
+
+  node->done = TRUE;
+
+  ut_a(thr->run_node != NULL);
+
+  mem_heap_empty(node->heap);
+}
+
+que_thr_t *row_truncate_step(que_thr_t *thr) /*!< in: query thread */
+{
+  purge_node_t *node;
+  ulint trx_purge_truncate_history_start_ms = ut_time_ms();
+
+  ut_ad(thr);
+  node = static_cast<purge_node_t *>(thr->run_node);
+
+  ut_a(!node->done);
+
+  ut_ad(que_node_get_type(node) == QUE_NODE_TRUNCATE);
+
+  if (!(node->rsegs == NULL || ib_vector_is_empty(node->rsegs))) {
+    trx_rseg_t *rseg;
+
+    rseg = *static_cast<trx_rseg_t **>(ib_vector_pop(node->rsegs));
+
+    trx_purge_truncate_rseg_history(rseg, node->limit);
+
+    if (srv_trace_purging > 4) {
+      fprintf(stderr, "row_truncate_step: truncated rseg: %ld, time: %ld\n",
+              rseg->id, ut_time_ms() - trx_purge_truncate_history_start_ms);
+    }
+    if (ib_vector_is_empty(node->rsegs)) {
+      row_truncate_end(thr);
+    } else {
+      thr->run_node = node;
+    }
+  } else {
+    row_truncate_end(thr);
+  }
 
   return (thr);
 }

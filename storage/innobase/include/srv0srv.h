@@ -499,6 +499,22 @@ extern const ulong srv_buf_pool_instances_default;
 extern ulong srv_n_page_hash_locks;
 /** Scan depth for LRU flush batch i.e.: number of blocks scanned*/
 extern ulong srv_LRU_scan_depth;
+
+extern ulong srv_var1;
+extern ulong srv_var2;
+extern ulong srv_var3;
+extern ulong srv_var4;
+extern ulong srv_var5;
+
+extern ulong srv_var6;
+extern ulong srv_var7;
+extern ulong srv_var8;
+extern ulong srv_var9;
+extern ulong srv_var10;
+
+extern ulong srv_var11;
+extern ulong srv_var12;
+
 /** Whether or not to flush neighbors of a block */
 extern ulong srv_flush_neighbors;
 /** Previously requested size. Accesses protected by memory barriers. */
@@ -608,6 +624,10 @@ extern ulong srv_max_purge_lag_delay;
 extern ulong srv_replication_delay;
 
 extern ulint srv_pass_corrupt_table;
+
+extern ulong srv_trace_purging;
+extern ulong srv_var21;
+extern ulong srv_var22;
 
 /* Helper macro to support srv_pass_corrupt_table checks. If 'cond' is false,
 execute 'code' if srv_pass_corrupt_table is non-zero, or trigger a fatal error

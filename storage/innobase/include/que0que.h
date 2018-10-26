@@ -352,6 +352,7 @@ no signal-sending roll_node in this graph */
 #define QUE_FORK_PROCEDURE_CALL 9
 #define QUE_FORK_MYSQL_INTERFACE 10
 #define QUE_FORK_RECOVERY 11
+#define QUE_FORK_TRUNCATE 12
 
 /* Query fork (or graph) states */
 #define QUE_FORK_ACTIVE 1
@@ -391,6 +392,7 @@ no signal-sending roll_node in this graph */
 #define QUE_NODE_ELSIF 27
 #define QUE_NODE_CALL 28
 #define QUE_NODE_EXIT 29
+#define QUE_NODE_TRUNCATE 30
 
 #include "que0que.ic"
 

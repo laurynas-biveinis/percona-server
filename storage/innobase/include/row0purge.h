@@ -52,6 +52,12 @@ this program; if not, write to the Free Software Foundation, Inc.,
 purge_node_t *row_purge_node_create(que_thr_t *parent, mem_heap_t *heap)
     MY_ATTRIBUTE((warn_unused_result));
 
+purge_node_t *row_truncate_node_create(
+    que_thr_t *parent, /*!< in: parent node, i.e., a
+                         thr node */
+    mem_heap_t *heap)  /*!< in: memory heap where created */
+    MY_ATTRIBUTE((warn_unused_result));
+
 /** Determines if it is possible to remove a secondary index entry.
  Removal is possible if the secondary index entry does not refer to any
  not delete marked version of a clustered index record where DB_TRX_ID
@@ -76,6 +82,11 @@ function used in an SQL execution graph.
 @return query thread to run next or NULL */
 que_thr_t *row_purge_step(que_thr_t *thr) /*!< in: query thread */
     MY_ATTRIBUTE((warn_unused_result));
+
+que_thr_t *row_truncate_step(que_thr_t *thr)
+    __attribute__((nonnull, warn_unused_result));
+
+struct purge_iter_t;
 
 /* Purge node structure */
 
@@ -104,6 +115,10 @@ struct purge_node_t {
 
   /** undo number of the record */
   undo_no_t undo_no;
+
+  ib_vector_t *rsegs;
+
+  purge_iter_t *limit;
 
   /** undo log record type: TRX_UNDO_INSERT_REC, ... */
   ulint rec_type;

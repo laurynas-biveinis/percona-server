@@ -3044,6 +3044,11 @@ static lsn_t srv_shutdown_log() {
   ut_ad(buf_lru_manager_running_threads == srv_buf_pool_instances ||
         buf_lru_manager_running_threads == 0);
 
+  if (buf_lru_manager_running_threads)
+    for (ulint i = 0; i < srv_buf_pool_instances; i++) {
+      os_event_set(buf_pool_from_array(i)->lru_flush_requested);
+    }
+
   srv_shutdown_state = SRV_SHUTDOWN_FLUSH_PHASE;
 
   for (uint32_t count = 0;

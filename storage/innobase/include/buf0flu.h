@@ -113,7 +113,7 @@ passed back to caller. Ignored if NULL
 @retval true	if a batch was queued successfully.
 @retval false	if another batch of same type was already running. */
 bool buf_flush_do_batch(buf_pool_t *buf_pool, buf_flush_t type, ulint min_n,
-                        lsn_t lsn_limit, ulint *n_processed);
+                        lsn_t lsn_limit, std::pair<ulint, ulint> *n_processed);
 
 /** This function picks up a single page from the tail of the LRU
 list, flushes it (if it is dirty), removes it from page_hash and LRU
@@ -123,7 +123,7 @@ list i.e.: when the background LRU flushing in the page_cleaner thread
 is not fast enough to keep pace with the workload.
 @param[in,out]	buf_pool	buffer pool instance
 @return true if success. */
-bool buf_flush_single_page_from_LRU(buf_pool_t *buf_pool);
+std::pair<ulint, ulint> buf_flush_single_page_from_LRU(buf_pool_t *buf_pool);
 
 /** Waits until a flush batch of the given type ends */
 void buf_flush_wait_batch_end(
@@ -163,7 +163,7 @@ LRU list and block mutexes.
 @param[in]	bpage	buffer control block, must be buf_page_in_file() and
                         in the LRU list
 @return true if can replace immediately */
-ibool buf_flush_ready_for_replace(buf_page_t *bpage);
+ulint buf_flush_ready_for_replace(buf_page_t *bpage);
 
 #ifdef UNIV_DEBUG
 struct SYS_VAR;

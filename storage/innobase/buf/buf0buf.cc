@@ -1064,6 +1064,9 @@ static void buf_pool_create(buf_pool_t *buf_pool, ulint buf_pool_size,
   mutex_create(LATCH_ID_BUF_POOL_ZIP, &buf_pool->zip_mutex);
   mutex_create(LATCH_ID_BUF_POOL_FLUSH_STATE, &buf_pool->flush_state_mutex);
 
+  buf_pool->lru_flush_requested = os_event_create("lru_flush_requested");
+  os_event_reset(buf_pool->lru_flush_requested);
+
   new (&buf_pool->allocator) ut_allocator<unsigned char>(mem_key_buf_buf_pool);
 
   if (buf_pool_size > 0) {
@@ -1090,6 +1093,8 @@ static void buf_pool_create(buf_pool_t *buf_pool, ulint buf_pool_size,
     }
 
     buf_pool->curr_size = 0;
+    buf_pool->last_interval_start = 0;
+    buf_pool->last_interval_free_page_demand = 0;
     chunk = buf_pool->chunks;
 
     do {
@@ -1601,7 +1606,9 @@ static bool buf_pool_withdraw_blocks(buf_pool_t *buf_pool) {
     /* reserve free_list length */
     if (UT_LIST_GET_LEN(buf_pool->withdraw) < buf_pool->withdraw_target) {
       ulint scan_depth;
-      ulint n_flushed = 0;
+      std::pair<ulint, ulint> n_flushed;
+      n_flushed.first = 0;
+      n_flushed.second = 0;
 
       /* cap scan_depth with current LRU size. */
       scan_depth = ut_min(ut_max(buf_pool->withdraw_target -
@@ -1613,10 +1620,10 @@ static bool buf_pool_withdraw_blocks(buf_pool_t *buf_pool) {
       buf_flush_do_batch(buf_pool, BUF_FLUSH_LRU, scan_depth, 0, &n_flushed);
       buf_flush_wait_batch_end(buf_pool, BUF_FLUSH_LRU);
 
-      if (n_flushed) {
-        MONITOR_INC_VALUE_CUMULATIVE(MONITOR_LRU_BATCH_FLUSH_TOTAL_PAGE,
-                                     MONITOR_LRU_BATCH_FLUSH_COUNT,
-                                     MONITOR_LRU_BATCH_FLUSH_PAGES, n_flushed);
+      if (n_flushed.first + n_flushed.second) {
+        MONITOR_INC_VALUE_CUMULATIVE(
+            MONITOR_LRU_BATCH_FLUSH_TOTAL_PAGE, MONITOR_LRU_BATCH_FLUSH_COUNT,
+            MONITOR_LRU_BATCH_FLUSH_PAGES, n_flushed.first + n_flushed.second);
       }
     } else {
       mutex_exit(&buf_pool->free_list_mutex);
@@ -5034,7 +5041,7 @@ static void buf_pool_invalidate_instance(buf_pool_t *buf_pool) {
 
   ut_d(buf_must_be_all_freed_instance(buf_pool));
 
-  while (buf_LRU_scan_and_free_block(buf_pool, true)) {
+  while (buf_LRU_scan_and_free_block(buf_pool, lru_scan_depth::ALL)) {
   }
 
   mutex_enter(&buf_pool->LRU_list_mutex);

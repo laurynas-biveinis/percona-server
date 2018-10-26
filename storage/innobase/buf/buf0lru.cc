@@ -941,6 +941,13 @@ void buf_LRU_insert_zip_clean(buf_page_t *bpage) {
 }
 #endif /* UNIV_DEBUG || UNIV_BUF_DEBUG */
 
+static bool buf_LRU_should_continue_scan(enum lru_scan_depth scan_depth,
+                                         ulint limit, ulint scanned) {
+  return (scan_depth == lru_scan_depth::ONE && scanned == 0) ||
+         scan_depth == lru_scan_depth::ALL ||
+         (scan_depth == lru_scan_depth::THRESHOLD && scanned < limit);
+}
+
 /** Try to free an uncompressed page of a compressed block from the unzip
 LRU list.  The compressed page is preserved, and it need not be clean.
 @param[in]	buf_pool	buffer pool instance
@@ -948,7 +955,7 @@ LRU list.  The compressed page is preserved, and it need not be clean.
                                 scan only srv_LRU_scan_depth / 2 blocks
 @return true if freed */
 static bool buf_LRU_free_from_unzip_LRU_list(buf_pool_t *buf_pool,
-                                             bool scan_all) {
+                                             enum lru_scan_depth scan_depth) {
   ut_ad(mutex_own(&buf_pool->LRU_list_mutex));
 
   if (!buf_LRU_evict_from_unzip_LRU(buf_pool)) {
@@ -959,7 +966,8 @@ static bool buf_LRU_free_from_unzip_LRU_list(buf_pool_t *buf_pool,
   bool freed = false;
 
   for (buf_block_t *block = UT_LIST_GET_LAST(buf_pool->unzip_LRU);
-       block != NULL && !freed && (scan_all || scanned < srv_LRU_scan_depth);
+       block != NULL && !freed &&
+       buf_LRU_should_continue_scan(scan_depth, srv_LRU_scan_depth, scanned);
        ++scanned) {
     buf_block_t *prev_block;
 
@@ -994,16 +1002,19 @@ static bool buf_LRU_free_from_unzip_LRU_list(buf_pool_t *buf_pool,
                                 only up to BUF_LRU_SEARCH_SCAN_THRESHOLD
 @return true if freed */
 static bool buf_LRU_free_from_common_LRU_list(buf_pool_t *buf_pool,
-                                              bool scan_all) {
+                                              enum lru_scan_depth scan_depth) {
   ut_ad(mutex_own(&buf_pool->LRU_list_mutex));
 
+  ulint scanned_with_locked = 0;
+  ulint scanned_dirty = 0;
   ulint scanned = 0;
   bool freed = false;
 
   for (buf_page_t *bpage = buf_pool->lru_scan_itr.start();
        bpage != NULL && !freed &&
-       (scan_all || scanned < BUF_LRU_SEARCH_SCAN_THRESHOLD);
-       ++scanned, bpage = buf_pool->lru_scan_itr.get()) {
+       buf_LRU_should_continue_scan(scan_depth, BUF_LRU_SEARCH_SCAN_THRESHOLD,
+                                    scanned_dirty);
+       bpage = buf_pool->lru_scan_itr.get()) {
     buf_page_t *prev = UT_LIST_GET_PREV(LRU, bpage);
     BPageMutex *mutex = buf_page_get_mutex(bpage);
 
@@ -1014,7 +1025,24 @@ static bool buf_LRU_free_from_common_LRU_list(buf_pool_t *buf_pool,
 
     unsigned accessed = buf_page_is_accessed(bpage);
 
-    mutex_enter(mutex);
+    const auto lock_failed = mutex_enter_nowait(mutex);
+
+    // Redundant?
+    scanned_with_locked++;
+
+    if (lock_failed) continue;
+
+    if (bpage->oldest_modification != 0) {
+      // 0 is kind of threshold here
+      // So current behavior is to trigger LRU on the very first occurance of
+      // dirty page in LRU tail that probably can be variable
+      if (scanned_dirty == 0) {
+        os_event_set(buf_pool->lru_flush_requested);
+      }
+      scanned_dirty++;
+    }
+
+    scanned++;
 
     if (buf_flush_ready_for_replace(bpage)) {
       freed = buf_LRU_free_page(bpage, true);
@@ -1031,7 +1059,13 @@ static bool buf_LRU_free_from_common_LRU_list(buf_pool_t *buf_pool,
 
     ut_ad(!mutex_own(mutex));
 
-    if (freed) break;
+    if (freed) {
+      MONITOR_INC_VALUE_CUMULATIVE(MONITOR_LRU_SINGLE_EVICT_CLEAN_TOTAL_PAGE,
+                                   MONITOR_LRU_SINGLE_EVICT_CLEAN_COUNT,
+                                   MONITOR_LRU_SINGLE_EVICT_CLEAN_PAGES, 1);
+
+      break;
+    }
   }
 
   if (scanned) {
@@ -1039,6 +1073,25 @@ static bool buf_LRU_free_from_common_LRU_list(buf_pool_t *buf_pool,
                                  MONITOR_LRU_SEARCH_SCANNED_NUM_CALL,
                                  MONITOR_LRU_SEARCH_SCANNED_PER_CALL, scanned);
   }
+
+  if (scanned_dirty) {
+    MONITOR_INC_VALUE_CUMULATIVE(MONITOR_LRU_SEARCH_SCANNED_DIRTY,
+                                 MONITOR_LRU_SEARCH_SCANNED_DIRTY_NUM_CALL,
+                                 MONITOR_LRU_SEARCH_SCANNED_DIRTY_PER_CALL,
+                                 scanned_dirty);
+  }
+  uintmax_t current_time = ut_time_us(NULL);
+  mutex_enter(&buf_pool->flush_state_mutex);
+  if (buf_pool->last_interval_start2 + 1000000 < current_time) {
+    buf_pool->last_interval_start2 = current_time;
+    buf_pool->scanned_dirty_max_old = buf_pool->scanned_dirty_max;
+    buf_pool->scanned_dirty_max = 0;
+  } else {
+    if (scanned_dirty > buf_pool->scanned_dirty_max) {
+      buf_pool->scanned_dirty_max = scanned_dirty;
+    }
+  }
+  mutex_exit(&buf_pool->flush_state_mutex);
 
   return (freed);
 }
@@ -1048,18 +1101,19 @@ static bool buf_LRU_free_from_common_LRU_list(buf_pool_t *buf_pool,
 @param[in]	scan_all	scan whole LRU list if ture, otherwise scan
                                 only BUF_LRU_SEARCH_SCAN_THRESHOLD blocks
 @return true if found and freed */
-bool buf_LRU_scan_and_free_block(buf_pool_t *buf_pool, bool scan_all) {
+bool buf_LRU_scan_and_free_block(buf_pool_t *buf_pool,
+                                 enum lru_scan_depth scan_depth) {
   bool freed = false;
   bool use_unzip_list = UT_LIST_GET_LEN(buf_pool->unzip_LRU) > 0;
 
   mutex_enter(&buf_pool->LRU_list_mutex);
 
   if (use_unzip_list) {
-    freed = buf_LRU_free_from_unzip_LRU_list(buf_pool, scan_all);
+    freed = buf_LRU_free_from_unzip_LRU_list(buf_pool, scan_depth);
   }
 
   if (!freed) {
-    freed = buf_LRU_free_from_common_LRU_list(buf_pool, scan_all);
+    freed = buf_LRU_free_from_common_LRU_list(buf_pool, scan_depth);
   }
 
   if (!freed) {
@@ -1209,11 +1263,9 @@ has failed
 @param[out]	mon_value_was	previous srv_print_innodb_monitor value
 @param[out]	started_monitor	whether InnoDB monitor print has been requested
 */
-static void buf_LRU_handle_lack_of_free_blocks(ulint n_iterations,
-                                               ulint started_ms,
-                                               ulint flush_failures,
-                                               bool *mon_value_was,
-                                               bool *started_monitor) {
+static void buf_LRU_handle_lack_of_free_blocks(
+    ulint instance_no, ulint n_iterations, ulint started_ms,
+    ulint flush_failures, bool *mon_value_was, bool *started_monitor) {
   static ulint last_printout_ms = 0;
 
   /* Legacy algorithm started warning after at least 2 seconds, we
@@ -1224,9 +1276,8 @@ static void buf_LRU_handle_lack_of_free_blocks(ulint n_iterations,
       (current_ms > last_printout_ms + 2000) &&
       srv_buf_pool_old_size == srv_buf_pool_size) {
     ib::warn(ER_IB_MSG_134)
-        << "Difficult to find free blocks in the buffer pool"
-           " ("
-        << n_iterations << " search iterations)! " << flush_failures
+        << "Difficult to find free blocks in the buffer pool:" << instance_no
+        << " (" << n_iterations << " search iterations)! " << flush_failures
         << " failed attempts to"
            " flush a page! Consider increasing the buffer pool"
            " size. It is also possible that in your Unix version"
@@ -1245,8 +1296,8 @@ static void buf_LRU_handle_lack_of_free_blocks(ulint n_iterations,
     last_printout_ms = current_ms;
     *mon_value_was = srv_print_innodb_monitor;
     *started_monitor = true;
-    srv_print_innodb_monitor = true;
-    os_event_set(srv_monitor_event);
+    //    srv_print_innodb_monitor = true;
+    // os_event_set(srv_monitor_event);
   }
 }
 
@@ -1291,8 +1342,45 @@ buf_block_t *buf_LRU_get_free_block(buf_pool_t *buf_pool) {
   bool mon_value_was = false;
   bool started_monitor = false;
   ulint started_ms = 0;
+  bool last_lru_page_evict_failed = false;
 
   ut_ad(!mutex_own(&buf_pool->LRU_list_mutex));
+
+  uintmax_t current_time = ut_time_us(NULL);
+  mutex_enter(&buf_pool->flush_state_mutex);
+
+  if (buf_pool->last_interval_start + 1000000 < current_time) {
+    if (srv_var12)
+      fprintf(
+          stderr,
+          "Last no smaller than 1s interval demand is %llu(%llu) "
+          "for instance %lu, get_free_n %lld, %lu\n",
+          (long long unsigned int)buf_pool->last_interval_free_page_demand,
+          (long long unsigned int)buf_pool->last_interval_free_page_demand_old,
+          buf_pool->instance_no,
+          (long long)MONITOR_VALUE(MONITOR_LRU_GET_FREE_OK),
+          buf_pool->last_interval_free_page_evict);
+
+    buf_pool->last_interval_free_page_demand_old =
+        buf_pool->last_interval_free_page_demand;
+    buf_pool->last_interval_free_page_evict_old =
+        buf_pool->last_interval_free_page_evict;
+    buf_pool->last_interval_free_page_old = buf_pool->last_interval_free_page;
+    buf_pool->flush_list_flushed_old = buf_pool->flush_list_flushed;
+
+    buf_pool->last_interval_free_page_demand = 1;
+    // account number of pages we evicted per last second
+    buf_pool->last_interval_free_page_evict = 0;
+    // account number of free pages we got from free list per last second
+    buf_pool->last_interval_free_page = 0;
+    // account number of pages we flushed in flush list flusher per last second
+    buf_pool->flush_list_flushed = 0;
+
+    buf_pool->last_interval_start = current_time;
+  } else {
+    buf_pool->last_interval_free_page_demand++;
+  }
+  mutex_exit(&buf_pool->flush_state_mutex);
 
   MONITOR_INC(MONITOR_LRU_GET_FREE_SEARCH);
 loop:
@@ -1323,12 +1411,44 @@ loop:
 
     block->skip_flush_check = false;
     block->page.flush_observer = NULL;
+    if (n_iterations) {
+      os_atomic_decrement_ulint(&buf_pool->waiters, 1);
+      os_atomic_decrement_ulint(&buf_pool->n_iter, n_iterations);
+    } else {
+      MONITOR_INC(MONITOR_LRU_GET_FREE_OK);
+    }
+    // account number of free pages we got from free list
+    os_atomic_increment_ulint(&buf_pool->last_interval_free_page, 1);
     return (block);
   }
 
   if (!started_ms) started_ms = ut_time_ms();
 
   MONITOR_INC(MONITOR_LRU_GET_FREE_LOOPS);
+
+  if (!last_lru_page_evict_failed) {
+    // We trying to do single page eviction
+    // - RO - no limit to scan
+    // - RW - limit to 100(variable?) + trigger LRU at the very first dirty page
+    last_lru_page_evict_failed =
+        !buf_LRU_scan_and_free_block(buf_pool, lru_scan_depth::THRESHOLD);
+
+    if (!last_lru_page_evict_failed) {
+      os_atomic_increment_ulint(&buf_pool->last_interval_free_page_evict, 1);
+      // Would be nice to rename and keep that status var
+      // Meaning: number of successfull single page evictions
+      MONITOR_INC(MONITOR_LRU_GET_FREE_OK1);
+
+      goto loop;
+    } else {
+      // Would be nice to rename and keep that status var
+      // Meaning: number of times we involve LRU+backoff to resolve free pages
+      // demand
+      MONITOR_INC(MONITOR_LRU_GET_FREE_OK2);
+      if (!n_iterations) os_atomic_increment_ulint(&buf_pool->waiters, 1);
+      os_event_set(buf_pool->lru_flush_requested);
+    }
+  }
 
   freed = false;
 
@@ -1341,6 +1461,7 @@ loop:
     const auto priority = srv_current_thread_priority;
 
     if (n_iterations < 3) {
+      os_atomic_increment_ulint(&buf_pool->n_iter, 1);
       os_thread_yield();
       if (!priority) {
         os_thread_yield();
@@ -1361,11 +1482,13 @@ loop:
       if (b > MAX_FREE_LIST_BACKOFF_SLEEP) {
         b = MAX_FREE_LIST_BACKOFF_SLEEP;
       }
+      os_atomic_increment_ulint(&buf_pool->n_iter, 1);
       os_thread_sleep(b / (priority ? FREE_LIST_BACKOFF_HIGH_PRIO_DIVIDER
                                     : FREE_LIST_BACKOFF_LOW_PRIO_DIVIDER));
     }
 
-    buf_LRU_handle_lack_of_free_blocks(n_iterations, started_ms, flush_failures,
+    buf_LRU_handle_lack_of_free_blocks(buf_pool->instance_no, n_iterations,
+                                       started_ms, flush_failures,
                                        &mon_value_was, &started_monitor);
 
     n_iterations++;
@@ -1383,6 +1506,7 @@ loop:
           (srv_shutdown_state != SRV_SHUTDOWN_NONE &&
            srv_shutdown_state != SRV_SHUTDOWN_CLEANUP));
   }
+  //#if 0
   if (buf_pool->init_flush[BUF_FLUSH_LRU] && srv_use_doublewrite_buf &&
       buf_dblwr != NULL) {
     /* If there is an LRU flush happening in the background then we
@@ -1393,7 +1517,7 @@ loop:
     buf_flush_wait_batch_end(buf_pool, BUF_FLUSH_LRU);
     goto loop;
   }
-
+  //#endif
   os_rmb;
 
   if (DBUG_EVALUATE_IF("simulate_recovery_lack_of_pages", true, false) ||
@@ -1406,7 +1530,9 @@ loop:
     If we are doing for the first time we'll scan only
     tail of the LRU list otherwise we scan the whole LRU
     list. */
-    freed = buf_LRU_scan_and_free_block(buf_pool, n_iterations > 0);
+    freed = buf_LRU_scan_and_free_block(
+        buf_pool,
+        n_iterations > 0 ? lru_scan_depth::ALL : lru_scan_depth::THRESHOLD);
 
     if (!freed && n_iterations == 0) {
       /* Tell other threads that there is no point
@@ -1422,8 +1548,9 @@ loop:
     goto loop;
   }
 
-  buf_LRU_handle_lack_of_free_blocks(n_iterations, started_ms, flush_failures,
-                                     &mon_value_was, &started_monitor);
+  buf_LRU_handle_lack_of_free_blocks(buf_pool->instance_no, n_iterations,
+                                     started_ms, flush_failures, &mon_value_was,
+                                     &started_monitor);
 
   /* If we have scanned the whole LRU and still are unable to
   find a free block then we should sleep here to let the
@@ -1449,7 +1576,14 @@ loop:
   involved (particularly in case of compressed pages). We
   can do that in a separate patch sometime in future. */
 
-  if (!buf_flush_single_page_from_LRU(buf_pool)) {
+  std::pair<ulint, ulint> n_flushed;
+
+  n_flushed.first = 0;
+  n_flushed.second = 0;
+
+  n_flushed = buf_flush_single_page_from_LRU(buf_pool);
+
+  if ((n_flushed.first + n_flushed.second) == 0) {
     MONITOR_INC(MONITOR_LRU_SINGLE_FLUSH_FAILURE_COUNT);
     ++flush_failures;
   }

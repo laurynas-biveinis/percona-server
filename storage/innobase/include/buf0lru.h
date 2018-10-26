@@ -90,12 +90,15 @@ The caller must hold the LRU list and buf_page_get_mutex() mutexes.
 bool buf_LRU_free_page(buf_page_t *bpage, bool zip)
     MY_ATTRIBUTE((warn_unused_result));
 
+enum class lru_scan_depth { ONE, THRESHOLD, ALL };
+
 /** Try to free a replaceable block.
 @param[in,out]	buf_pool	buffer pool instance
 @param[in]	scan_all	scan whole LRU list if ture, otherwise scan
                                 only BUF_LRU_SEARCH_SCAN_THRESHOLD blocks
 @return true if found and freed */
-bool buf_LRU_scan_and_free_block(buf_pool_t *buf_pool, bool scan_all)
+bool buf_LRU_scan_and_free_block(buf_pool_t *buf_pool,
+                                 enum lru_scan_depth scan_depth)
     MY_ATTRIBUTE((warn_unused_result));
 
 /** Returns a free block from the buf_pool.  The block is taken off the
