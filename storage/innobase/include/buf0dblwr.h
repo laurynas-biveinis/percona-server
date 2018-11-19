@@ -174,6 +174,12 @@ buf_parallel_dblwr_finish_recovery(void);
 
 /** A single parallel doublewrite partition data structure */
 struct parallel_dblwr_shard_t {
+	/** Parallel doublewrite buffer file handle, if
+	!srv_file_per_dblwr_shard */
+	pfs_os_file_t		file;
+	/** Path to the parallel doublewrite buffer, if
+	!srv_file_per_dblwr_shard */
+	char*			path;
 	/** First free position in write_buf measured in units of
 	UNIV_PAGE_SIZE */
 	ulint		first_free;
@@ -197,12 +203,14 @@ enum { MAX_DBLWR_SHARDS = MAX_BUFFER_POOLS * 2 };
 /** Parallel doublewrite buffer data structure */
 class parallel_dblwr_t {
 public:
-	/** Parallel doublewrite buffer file handle */
+	/** Parallel doublewrite buffer file handle, if
+	!srv_file_per_dblwr_shard */
 	pfs_os_file_t		file;
 	/** Whether the doublewrite buffer file needs flushing after each
 	write */
 	bool			needs_flush;
-	/** Path to the parallel doublewrite buffer */
+	/** Path to the parallel doublewrite buffer, if
+	!srv_file_per_dblwr_shard, stem otherwise */
 	char*			path;
 	/** Individual parallel doublewrite partitions */
 	parallel_dblwr_shard_t	shard[MAX_DBLWR_SHARDS];

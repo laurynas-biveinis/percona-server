@@ -188,6 +188,7 @@ values */
 static ulong	innobase_fast_shutdown			= 1;
 static my_bool	innobase_file_format_check		= TRUE;
 static my_bool	innobase_use_doublewrite		= TRUE;
+static my_bool  innobase_file_per_dblwr_shard		= TRUE;
 static my_bool	innobase_use_checksums			= TRUE;
 static my_bool	innobase_locks_unsafe_for_binlog	= FALSE;
 static my_bool	innobase_rollback_on_timeout		= FALSE;
@@ -4517,6 +4518,7 @@ innobase_change_buffering_inited_ok:
 	srv_n_write_io_threads = (ulint) innobase_write_io_threads;
 
 	srv_use_doublewrite_buf = (ibool) innobase_use_doublewrite;
+	srv_file_per_dblwr_shard = static_cast<bool>(innobase_file_per_dblwr_shard);
 
 	if (!innobase_use_checksums) {
 		ib::warn() << "Setting innodb_checksums to OFF is DEPRECATED."
@@ -21428,6 +21430,11 @@ static MYSQL_SYSVAR_BOOL(checksums, innobase_use_checksums,
   " Disable with --skip-innodb-checksums.",
   NULL, NULL, TRUE);
 
+static MYSQL_SYSVAR_BOOL(doublewrite_file_per_shard, innobase_file_per_dblwr_shard,
+			 PLUGIN_VAR_NOCMDARG | PLUGIN_VAR_READONLY,
+			 "If TRUE, create a separate file for each parallel doublewrite shard",
+			 NULL, NULL, TRUE);
+
 static MYSQL_SYSVAR_STR(data_home_dir, innobase_data_home_dir,
   PLUGIN_VAR_READONLY,
   "The common part for InnoDB table spaces.",
@@ -22670,6 +22677,7 @@ static struct st_mysql_sys_var* innobase_system_variables[]= {
   MYSQL_SYSVAR(parallel_dblwr_encrypt),
   MYSQL_SYSVAR(data_home_dir),
   MYSQL_SYSVAR(doublewrite),
+  MYSQL_SYSVAR(doublewrite_file_per_shard),
   MYSQL_SYSVAR(stats_include_delete_marked),
   MYSQL_SYSVAR(api_enable_binlog),
   MYSQL_SYSVAR(api_enable_mdl),

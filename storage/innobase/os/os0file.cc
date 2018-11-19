@@ -3391,6 +3391,7 @@ os_file_get_last_error_low(
 			<< "Operating system error number "
 			<< err
 			<< " in a file operation.";
+		ut_ad(err != 14);
 
 		if (err == ENOENT) {
 
@@ -6081,6 +6082,7 @@ os_file_write_page(
 			" support files of this size."
 			" Check also that the disk is not full"
 			" or a disk quota exceeded.";
+		ut_ad(errno != 9);
 
 		if (strerror(errno) != NULL) {
 

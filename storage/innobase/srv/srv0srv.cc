@@ -475,6 +475,7 @@ unsigned long long	srv_stats_persistent_sample_pages = 20;
 my_bool		srv_stats_auto_recalc = TRUE;
 
 ibool	srv_use_doublewrite_buf	= TRUE;
+bool srv_file_per_dblwr_shard = true;
 
 /** doublewrite buffer is 1MB is size i.e.: it can hold 128 16K pages.
 The following parameter is the size of the buffer that is used for

@@ -39,6 +39,7 @@ Created 2011/12/19
 #include "page0zip.h"
 #include "trx0sys.h"
 #include "os0file.h"
+#include "ut0new.h"
 
 #ifndef UNIV_HOTBACKUP
 
@@ -378,26 +379,24 @@ buf_parallel_dblwr_make_path(void)
 
 	os_file_type_t	type;
 	bool		exists = false;
-	bool		ret;
-
-	ret = os_file_status(path, &exists, &type);
+	bool		ret = !srv_file_per_dblwr_shard && os_file_status(path, &exists, &type);
 
 	/* For realpath() to succeed the file must exist. */
-
 	if (ret && exists) {
+		ut_ad(!srv_file_per_dblwr_shard);
 		if (my_realpath(path, path, MY_WME) != 0) {
 
 			return(DB_ERROR);
 		}
 		if (type != OS_FILE_TYPE_FILE) {
 			ib::error() << "Parallel doublewrite path "
-				    << path << " must point to a regular "
-				"file";
+				    << path
+				    << " must point to a regular file";
 			return(DB_WRONG_FILE_NAME);
 		}
 	} else if (!is_absolute_path(srv_parallel_doublewrite_path)) {
-		/* If it does not exist, and is not an absolute path, then
-		resolve only the directory part and append
+		/* If it does not exist, and is not an absolute path,
+		then resolve only the directory part and append
 		srv_parallel_doublewrite_path to it. */
 		char	dir_full[FN_REFLEN];
 
@@ -408,13 +407,11 @@ buf_parallel_dblwr_make_path(void)
 
 		if (dir_full[strlen(dir_full) - 1] == OS_PATH_SEPARATOR) {
 
-			ut_snprintf(path, sizeof(path), "%s%s",
-				    dir_full,
+			ut_snprintf(path, sizeof(path), "%s%s", dir_full,
 				    srv_parallel_doublewrite_path);
 		} else {
 
-			ut_snprintf(path, sizeof(path), "%s%c%s",
-				    dir_full,
+			ut_snprintf(path, sizeof(path), "%s%c%s", dir_full,
 				    OS_PATH_SEPARATOR,
 				    srv_parallel_doublewrite_path);
 		}
@@ -422,6 +419,18 @@ buf_parallel_dblwr_make_path(void)
 
 	parallel_dblwr_buf.path = mem_strdup(path);
 
+	if (srv_file_per_dblwr_shard) {
+		const size_t stem_len = strlen(parallel_dblwr_buf.path);
+		compile_time_assert(MAX_DBLWR_SHARDS < 1000);
+		for (uint i = 0; i < buf_parallel_dblwr_shard_num(); i++) {
+			const size_t shard_path_len = stem_len + 3; // "< 1000 above"
+			parallel_dblwr_buf.shard[i].path
+				= static_cast<char *>(ut_malloc_nokey(shard_path_len));
+			ut_snprintf(parallel_dblwr_buf.shard[i].path,
+				    shard_path_len, "%s%u",
+				    parallel_dblwr_buf.path, i);
+		}
+	}
 	return(parallel_dblwr_buf.path ? DB_SUCCESS : DB_OUT_OF_MEMORY);
 }
 
@@ -430,7 +439,14 @@ static
 void
 buf_parallel_dblwr_close(void)
 {
-	if (!parallel_dblwr_buf.file.is_closed()) {
+	if (srv_file_per_dblwr_shard) {
+		for (uint i = 0; i < buf_parallel_dblwr_shard_num(); i++) {
+			if (!parallel_dblwr_buf.shard[i].file.is_closed()) {
+				os_file_close(parallel_dblwr_buf.shard[i].file);
+				parallel_dblwr_buf.shard[i].file.set_closed();
+			}
+		}
+	} else if (!parallel_dblwr_buf.file.is_closed()) {
 		os_file_close(parallel_dblwr_buf.file);
 		parallel_dblwr_buf.file.set_closed();
 	}
@@ -629,6 +645,9 @@ buf_dblwr_init_or_load_pages(
 		return(err);
 	}
 
+	if (srv_file_per_dblwr_shard) {
+		return(DB_SUCCESS); // YOLO
+	}
 	ut_ad(parallel_dblwr_buf.file.is_closed());
 	bool success;
 	parallel_dblwr_buf.file
@@ -751,8 +770,15 @@ buf_parallel_dblwr_delete(void)
 {
 	if (parallel_dblwr_buf.path) {
 
-		os_file_delete_if_exists(innodb_parallel_dblwrite_file_key,
-					 parallel_dblwr_buf.path, NULL);
+		if (srv_file_per_dblwr_shard) {
+			for (uint i = 0; i < buf_parallel_dblwr_shard_num(); i++)
+				os_file_delete_if_exists(innodb_parallel_dblwrite_file_key,
+							 parallel_dblwr_buf.shard[i].path,
+							 NULL);
+		} else {
+			os_file_delete_if_exists(innodb_parallel_dblwrite_file_key,
+						 parallel_dblwr_buf.path, NULL);
+		}
 	}
 }
 
@@ -1315,24 +1341,37 @@ buf_dblwr_flush_buffered_writes(
 	len = dblwr_shard->first_free * UNIV_PAGE_SIZE;
 
 	/* Find our part of the doublewrite buffer */
-	os_offset_t file_pos = dblwr_partition
-		* srv_doublewrite_batch_size * UNIV_PAGE_SIZE;
+	const os_offset_t file_pos = srv_file_per_dblwr_shard ? 0 :
+		dblwr_partition	* srv_doublewrite_batch_size * UNIV_PAGE_SIZE;
 	IORequest io_req(IORequest::WRITE | IORequest::NO_COMPRESSION);
 
 #ifdef UNIV_DEBUG
 	/* The file size must not increase */
-	os_offset_t desired_size = srv_doublewrite_batch_size * UNIV_PAGE_SIZE
-		* buf_parallel_dblwr_shard_num();
-	os_offset_t actual_size = os_file_get_size(parallel_dblwr_buf.file);
+	const os_offset_t desired_size = srv_doublewrite_batch_size *
+		UNIV_PAGE_SIZE *
+		(srv_file_per_dblwr_shard ? 1 : buf_parallel_dblwr_shard_num());
+	const os_offset_t actual_size =
+		os_file_get_size(srv_file_per_dblwr_shard ?
+				 parallel_dblwr_buf.shard[dblwr_partition].file
+				 : parallel_dblwr_buf.file);
 	ut_ad(desired_size == actual_size);
 	ut_ad(file_pos + len <= actual_size);
 	/* We must not touch neighboring buffers */
-	ut_ad(file_pos + len <= (dblwr_partition + 1)
+	ut_ad(srv_file_per_dblwr_shard
+	      || file_pos + len <= (dblwr_partition + 1)
 	      * srv_doublewrite_batch_size * UNIV_PAGE_SIZE);
 #endif
 
-	os_file_write(io_req, parallel_dblwr_buf.path, parallel_dblwr_buf.file,
-		      write_buf, file_pos, len);
+	if (srv_file_per_dblwr_shard) {
+		os_file_write(io_req,
+			      parallel_dblwr_buf.shard[dblwr_partition].path,
+			      parallel_dblwr_buf.shard[dblwr_partition].file,
+			      write_buf, file_pos, len);
+	} else {
+		os_file_write(io_req, parallel_dblwr_buf.path,
+			      parallel_dblwr_buf.file,
+			      write_buf, file_pos, len);
+	}
 
 	ut_ad(dblwr_shard->first_free <= srv_doublewrite_batch_size);
 
@@ -1341,7 +1380,9 @@ buf_dblwr_flush_buffered_writes(
 	srv_stats.dblwr_writes.inc();
 
 	if (parallel_dblwr_buf.needs_flush)
-		os_file_flush(parallel_dblwr_buf.file);
+		os_file_flush(srv_file_per_dblwr_shard ?
+			      parallel_dblwr_buf.shard[dblwr_partition].file :
+			      parallel_dblwr_buf.file);
 
 	/* We know that the writes have been flushed to disk now
 	and in recovery we will find them in the doublewrite buffer
@@ -1569,8 +1610,9 @@ buf_parallel_dblwr_file_create(void)
 	ut_ad(!srv_read_only_mode);
 	/* The buffer size is two doublewrite batches (one for LRU, one for
 	flush list flusher) per buffer pool instance. */
-	os_offset_t size = srv_doublewrite_batch_size * UNIV_PAGE_SIZE
-		* buf_parallel_dblwr_shard_num();
+	const os_offset_t size = srv_doublewrite_batch_size * UNIV_PAGE_SIZE
+		* (srv_file_per_dblwr_shard ? 1 :
+		   buf_parallel_dblwr_shard_num());
 	ut_a(size <= MAX_DOUBLEWRITE_FILE_SIZE);
 	ut_a(size > 0);
 	ut_a(size % UNIV_PAGE_SIZE == 0);
@@ -1583,15 +1625,25 @@ buf_parallel_dblwr_file_create(void)
 	ut_ad(parallel_dblwr_buf.recovery_buf_unaligned == NULL);
 
 	/* Set O_SYNC if innodb_flush_method == O_DSYNC. */
-	ulint o_sync = (srv_unix_file_flush_method == SRV_UNIX_O_DSYNC)
+	const ulint o_sync = (srv_unix_file_flush_method == SRV_UNIX_O_DSYNC)
 		? OS_FILE_O_SYNC : 0;
 
 	bool success;
-	parallel_dblwr_buf.file
-		= os_file_create_simple(innodb_parallel_dblwrite_file_key,
-					parallel_dblwr_buf.path,
-					OS_FILE_CREATE | o_sync,
-					OS_FILE_READ_WRITE, false, &success);
+	if (srv_file_per_dblwr_shard) {
+		for (uint i = 0; i < buf_parallel_dblwr_shard_num(); i++) {
+			parallel_dblwr_buf.shard[i].file
+				= os_file_create_simple(innodb_parallel_dblwrite_file_key,
+							parallel_dblwr_buf.shard[i].path,
+							OS_FILE_CREATE | o_sync,
+							OS_FILE_READ_WRITE, false, &success);
+			if (!success) break;
+		}
+	} else
+		parallel_dblwr_buf.file
+			= os_file_create_simple(innodb_parallel_dblwrite_file_key,
+						parallel_dblwr_buf.path,
+						OS_FILE_CREATE | o_sync,
+						OS_FILE_READ_WRITE, false, &success);
 	if (!success) {
 		if (os_file_get_last_error(false) == OS_FILE_ALREADY_EXISTS) {
 			ib::error() << "A parallel doublewrite file "
@@ -1601,10 +1653,23 @@ buf_parallel_dblwr_file_create(void)
 		return(DB_ERROR);
 	}
 
-	const bool o_direct_set
-		= os_file_set_nocache(parallel_dblwr_buf.file,
-				      parallel_dblwr_buf.path,
-				      "create", false);
+	bool o_direct_set = true;
+	if (srv_file_per_dblwr_shard) {
+		for (uint i = 0; i < buf_parallel_dblwr_shard_num(); i++) {
+			const bool o_direct_set_for_shard
+				= os_file_set_nocache(parallel_dblwr_buf.shard[i].file,
+						      parallel_dblwr_buf.shard[i].path,
+						      "create", false);
+			if (o_direct_set && !o_direct_set_for_shard) {
+				ib::warn() << "Setting O_DIRECT failed for one of the doublewrite shards. Will sync ALL shards.";
+			}
+			o_direct_set = o_direct_set && o_direct_set_for_shard;
+		}
+	} else {
+		o_direct_set = os_file_set_nocache(parallel_dblwr_buf.file,
+						   parallel_dblwr_buf.path,
+						   "create", false);
+	}
 	switch (srv_unix_file_flush_method) {
 	case SRV_UNIX_NOSYNC:
 	case SRV_UNIX_O_DSYNC:
@@ -1619,13 +1684,25 @@ buf_parallel_dblwr_file_create(void)
 		break;
 	}
 
-	success = os_file_set_size(parallel_dblwr_buf.path,
-				   parallel_dblwr_buf.file, size, false);
+	if (srv_file_per_dblwr_shard) {
+		for (uint i = 0; i < buf_parallel_dblwr_shard_num(); i++) {
+			success = os_file_set_size(parallel_dblwr_buf.shard[i].path,
+						   parallel_dblwr_buf.shard[i].file,
+						   size, false);
+			if (!success) break;
+			ut_ad(os_file_get_size(parallel_dblwr_buf.shard[i].file) == size);
+		}
+	} else {
+		success = os_file_set_size(parallel_dblwr_buf.path,
+					   parallel_dblwr_buf.file, size,
+					   false);
+		ut_ad(os_file_get_size(parallel_dblwr_buf.file) == size
+		      || !success);
+	}
 	if (!success) {
 		buf_parallel_dblwr_free(true);
 		return(DB_ERROR);
 	}
-	ut_ad(os_file_get_size(parallel_dblwr_buf.file) == size);
 
 	ib::info() << "Created parallel doublewrite buffer at "
 		   << parallel_dblwr_buf.path << ", size "
@@ -1640,13 +1717,11 @@ the disk file.
 dberr_t
 buf_parallel_dblwr_create(void)
 {
-	if (!parallel_dblwr_buf.file.is_closed() || srv_read_only_mode) {
+	if (!(srv_file_per_dblwr_shard ? true : parallel_dblwr_buf.file.is_closed()) || srv_read_only_mode) {
 
 		ut_ad(parallel_dblwr_buf.recovery_buf_unaligned == NULL);
 		return(DB_SUCCESS);
 	}
-
-	memset(parallel_dblwr_buf.shard, 0, sizeof(parallel_dblwr_buf.shard));
 
 	dberr_t err = buf_parallel_dblwr_file_create();
 	if (err != DB_SUCCESS) {
@@ -1706,6 +1781,9 @@ buf_parallel_dblwr_free(bool delete_file)
 
 		ut_free(dblwr_shard->write_buf_unaligned);
 		ut_free(dblwr_shard->buf_block_arr);
+
+		if (srv_file_per_dblwr_shard)
+			ut_free(dblwr_shard->path);
 	}
 
 	if (delete_file) {
