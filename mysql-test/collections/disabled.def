@@ -244,3 +244,6 @@ innodb.sdi_delete_marked : BUG#5772 8.0.16 encryption reconciliation
 main.all_persisted_variables : BUG#5772 8.0.16 encryption reconciliation
 main.dd_schema_definition_debug : BUG#5772 8.0.16 encryption reconciliation
 innodb.table_encrypt_1 : BUG#5772 8.0.16 encryption reconciliation
+
+# PS-5363 merge MySQL 8.0.17
+main.percona_mysqlbinlog_ssl_compress : BUG#5363 temporarily disabled until the merge
